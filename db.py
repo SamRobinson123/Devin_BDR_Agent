@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from datetime import datetime, timezone
 
@@ -23,6 +24,13 @@ CREATE TABLE IF NOT EXISTS leads (
 EXTRA_COLUMNS = {
     "title": "TEXT",
     "linkedin_url": "TEXT",
+    "seniority": "TEXT",
+    "tenure": "TEXT",
+    "prior_companies": "TEXT",
+    "person_summary": "TEXT",
+    "talking_points": "TEXT",
+    "profile_sources": "TEXT",
+    "phone_source": "TEXT",
     "location": "TEXT",
     "industry": "TEXT",
     "employee_count": "TEXT",
@@ -35,7 +43,20 @@ EXTRA_COLUMNS = {
 
 PROFILE_FIELDS = ("company", "title", "linkedin_url", "location", "industry",
                   "employee_count", "research_summary", "fit_score", "fit_reason",
-                  "draft_subject", "draft_body")
+                  "draft_subject", "draft_body", "seniority", "tenure",
+                  "prior_companies", "person_summary", "talking_points",
+                  "profile_sources")
+
+# Profile fields the model returns as lists; stored as JSON text.
+JSON_FIELDS = ("prior_companies", "talking_points", "profile_sources")
+
+SETTINGS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+)
+"""
 
 
 def _migrate(conn: sqlite3.Connection) -> None:
@@ -50,6 +71,7 @@ def init_db(path: str) -> sqlite3.Connection:
     conn = sqlite3.connect(path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute(SCHEMA)
+    conn.execute(SETTINGS_SCHEMA)
     conn.commit()
     _migrate(conn)
     return conn
@@ -59,8 +81,36 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _encode(field: str, value):
+    return json.dumps(value) if field in JSON_FIELDS and not isinstance(value, str) else value
+
+
+def _decode(field: str, value):
+    if field not in JSON_FIELDS or not isinstance(value, str):
+        return value
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return value
+
+
 def _row_to_dict(row: sqlite3.Row) -> dict:
-    return dict(row)
+    return {k: _decode(k, v) for k, v in dict(row).items()}
+
+
+def get_setting(conn: sqlite3.Connection, key: str) -> dict:
+    row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    return json.loads(row["value"]) if row else {}
+
+
+def set_setting(conn: sqlite3.Connection, key: str, value: dict) -> None:
+    conn.execute(
+        "INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value, "
+        "updated_at = excluded.updated_at",
+        (key, json.dumps(value), _now()),
+    )
+    conn.commit()
 
 
 def upsert_lead(conn: sqlite3.Connection, lead: dict) -> int:
@@ -86,7 +136,7 @@ def upsert_lead(conn: sqlite3.Connection, lead: dict) -> int:
 
 def _update_profile(conn: sqlite3.Connection, lead_id: int, lead: dict) -> None:
     """Write whichever profile/research/draft fields the lead carries; leave the rest."""
-    fields = {k: lead[k] for k in PROFILE_FIELDS if lead.get(k) is not None}
+    fields = {k: _encode(k, lead[k]) for k in PROFILE_FIELDS if lead.get(k) is not None}
     if not fields:
         return
     assignments = ", ".join(f"{k} = ?" for k in fields)
@@ -119,6 +169,14 @@ def update_lead_enrichment(conn: sqlite3.Connection, lead_id: int, email, status
         "UPDATE leads SET email = ?, status = ?, phone = ?, phone_status = ?, "
         "updated_at = ? WHERE id = ?",
         (email, status, phone, phone_status, _now(), lead_id),
+    )
+    conn.commit()
+
+
+def set_phone_source(conn: sqlite3.Connection, lead_id: int, source: str | None) -> None:
+    conn.execute(
+        "UPDATE leads SET phone_source = ?, updated_at = ? WHERE id = ?",
+        (source, _now(), lead_id),
     )
     conn.commit()
 

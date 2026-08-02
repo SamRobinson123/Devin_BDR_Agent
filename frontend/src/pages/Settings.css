@@ -1,0 +1,132 @@
+.settings-page {
+  padding: 24px 32px;
+  height: 100svh;
+  overflow-y: auto;
+  background: #fff;
+  max-width: 720px;
+}
+
+.settings-header {
+  margin-bottom: 20px;
+}
+
+.settings-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--crm-text);
+  margin: 0;
+}
+
+.settings-subtitle {
+  font-size: 13px;
+  color: var(--crm-text-secondary);
+  margin: 2px 0 0;
+}
+
+.settings-card {
+  border: 1px solid var(--crm-border, #e5e7eb);
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+
+.settings-card h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 12px;
+  color: var(--crm-text);
+}
+
+.settings-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-card-head h2 {
+  margin: 0;
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 12px 0;
+  flex: 1;
+}
+
+.settings-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--crm-text-secondary);
+}
+
+.settings-hint {
+  font-size: 11px;
+  color: var(--crm-text-secondary);
+}
+
+.settings-field input {
+  border: 1px solid var(--crm-border, #e5e7eb);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font: 13px var(--sans);
+}
+
+.settings-row {
+  display: flex;
+  gap: 12px;
+}
+
+.settings-row .settings-field:last-child {
+  max-width: 110px;
+}
+
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--crm-text);
+  margin: 6px 0;
+}
+
+.settings-test {
+  border: 1px solid var(--crm-border, #e5e7eb);
+  background: #fff;
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.settings-test:hover {
+  background: #f9fafb;
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 32px;
+}
+
+.settings-save {
+  background: var(--crm-accent, #2563eb);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-save:hover {
+  background: var(--crm-accent-hover, #1d4ed8);
+}
+
+.settings-status {
+  font-size: 13px;
+  color: var(--crm-text-secondary);
+}

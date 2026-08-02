@@ -9,7 +9,7 @@ describe('GraphPanel', () => {
     expect(screen.getByText('find_node')).toBeInTheDocument()
     expect(screen.getByText('human_gate')).toBeInTheDocument()
     expect(screen.getByText('enrich_node')).toBeInTheDocument()
-    expect(screen.getByText('apollo_phone_node')).toBeInTheDocument()
+    expect(screen.getByText('phone_node')).toBeInTheDocument()
   })
 
   it('marks nodes completed and current based on path', () => {

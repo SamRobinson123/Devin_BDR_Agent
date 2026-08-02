@@ -9,8 +9,12 @@ from pydantic import BaseModel
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
 
-from db import init_db, list_leads, insert_csv_rows, get_leads_by_ids, update_lead_enrichment, upsert_lead
-from graph import enrich_node, apollo_phone_node
+from db import (init_db, list_leads, insert_csv_rows, get_leads_by_ids,
+                update_lead_enrichment, upsert_lead, get_setting, set_setting,
+                set_phone_source)
+import notifications
+from nodes.enrich import enrich_node
+from nodes.phone import phone_node
 from graph import app as compiled_graph
 
 LEADS_DB_PATH = os.getenv("LEADS_DB_PATH", "leads.db")
@@ -34,6 +38,40 @@ class ChatRequest(BaseModel):
     thread_id: str
 
 
+class TestNotificationRequest(BaseModel):
+    channel: str
+
+
+def _notification_settings() -> dict:
+    return notifications.merge_defaults(
+        get_setting(db_conn, notifications.SETTINGS_KEY)
+    )
+
+
+@app.get("/settings/notifications")
+def read_notification_settings():
+    return notifications.redact(_notification_settings())
+
+
+@app.put("/settings/notifications")
+def write_notification_settings(update: dict):
+    merged = notifications.apply_update(_notification_settings(), update)
+    set_setting(db_conn, notifications.SETTINGS_KEY, merged)
+    return notifications.redact(merged)
+
+
+@app.post("/settings/notifications/test")
+def test_notification(req: TestNotificationRequest):
+    settings = _notification_settings()
+    subject = "BDR agent test notification"
+    body = "If you can read this, the BDR agent can reach you here."
+    if req.channel == "slack":
+        return notifications.send_slack(settings, f"*{subject}*\n{body}")
+    if req.channel == "email":
+        return notifications.send_email(settings, subject, body)
+    return {"channel": req.channel, "ok": False, "error": "unknown channel"}
+
+
 @app.get("/leads")
 def get_leads(status: str | None = None):
     return list_leads(db_conn, status=status)
@@ -51,12 +89,13 @@ async def upload_leads(file: UploadFile = File(...)):
 def enrich_leads(req: EnrichRequest):
     rows = get_leads_by_ids(db_conn, req.lead_ids)
     email_result = enrich_node({"leads": rows})
-    phone_result = apollo_phone_node({"enriched": email_result["enriched"]})
+    phone_result = phone_node({"enriched": email_result["enriched"]})
     for lead in phone_result["enriched"]:
         update_lead_enrichment(
             db_conn, lead["id"], lead.get("email"), lead.get("status"),
             lead.get("phone"), lead.get("phone_status"),
         )
+        set_phone_source(db_conn, lead["id"], lead.get("phone_source"))
     return get_leads_by_ids(db_conn, req.lead_ids)
 
 
@@ -73,6 +112,19 @@ def _save_result_to_db(values: dict) -> None:
             db_conn, lead_id, lead.get("email"), lead.get("status"),
             lead.get("phone"), lead.get("phone_status"),
         )
+        set_phone_source(db_conn, lead_id, lead.get("phone_source"))
+
+
+def _notify_gate(payload: dict) -> None:
+    settings = _notification_settings()
+    if not settings.get("notify_on_gate"):
+        return
+    notifications.notify(
+        settings, "BDR agent needs your call",
+        f"{payload['message']}\n\n" + "\n".join(
+            notifications.lead_line(lead) for lead in payload.get("leads", [])
+        ),
+    )
 
 
 def _build_result(config: dict) -> dict:
@@ -83,6 +135,7 @@ def _build_result(config: dict) -> dict:
     if snapshot.next:
         interrupt_obj = snapshot.tasks[0].interrupts[0]
         payload = interrupt_obj.value
+        _notify_gate(payload)
         return {
             "reply": payload["message"],
             "leads": payload["leads"],
