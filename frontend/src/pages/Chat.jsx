@@ -3,6 +3,15 @@ import { sendChat } from '../api'
 import GraphPanel from './GraphPanel'
 import './Chat.css'
 
+const NEXT_NODE = {
+  find_node: 'dedupe_node',
+  dedupe_node: 'research_node',
+  research_node: 'score_node',
+  score_node: 'human_gate',
+  human_gate: 'enrich_node',
+  enrich_node: 'apollo_phone_node',
+}
+
 function getThreadId() {
   let id = localStorage.getItem('thread_id')
   if (!id) {
@@ -25,7 +34,7 @@ export default function Chat() {
     scrollRef.current?.scrollIntoView?.({ behavior: 'smooth' })
   }, [messages, pending, sending])
 
-  async function send(text) {
+  async function send(text, options = {}) {
     if (!text.trim() || sending) return
     setSending(true)
     setPath([])
@@ -44,12 +53,10 @@ export default function Chat() {
           if (evt.node === 'intent_node') {
             const branch = evt.data.intent === 'enrich_leads' ? 'enrich_node' : 'find_node'
             next.push({ node: branch, status: 'current' })
-          } else if (evt.node === 'find_node') {
-            next.push({ node: 'human_gate', status: 'current' })
-          } else if (evt.node === 'human_gate') {
-            next.push({ node: 'enrich_node', status: 'current' })
-          } else if (evt.node === 'enrich_node') {
-            next.push({ node: 'apollo_phone_node', status: 'current' })
+          } else if (evt.node === 'apollo_phone_node') {
+            if (options.drafting) next.push({ node: 'draft_node', status: 'current' })
+          } else if (NEXT_NODE[evt.node]) {
+            next.push({ node: NEXT_NODE[evt.node], status: 'current' })
           }
           return next
         })
@@ -100,6 +107,17 @@ export default function Chat() {
                               {lead.phone_status && <span className={`status-pill ${lead.phone_status}`}>{lead.phone_status.replace('_', ' ')}</span>}
                             </div>
                           )}
+                          {lead.fit_score !== null && lead.fit_score !== undefined && (
+                            <div className="chat-lead-detail" title={lead.fit_reason || ''}>
+                              ICP fit {lead.fit_score}
+                            </div>
+                          )}
+                          {lead.draft_subject && (
+                            <div className="chat-lead-draft">
+                              <div className="chat-lead-draft-subject">{lead.draft_subject}</div>
+                              <div className="chat-lead-draft-body">{lead.draft_body}</div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -115,6 +133,13 @@ export default function Chat() {
                   disabled={sending}
                 >
                   Enrich
+                </button>
+                <button
+                  className="chat-gate-button"
+                  onClick={() => send('draft', { drafting: true })}
+                  disabled={sending}
+                >
+                  Enrich + Draft
                 </button>
                 <button
                   className="chat-gate-button"
