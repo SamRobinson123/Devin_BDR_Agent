@@ -128,7 +128,9 @@ def test_chat_find_intent_streams_node_events_and_pauses(tmp_path, monkeypatch):
     node_events = [e for e in events if e["event"] == "node"]
     result_events = [e for e in events if e["event"] == "result"]
 
-    assert [e["data"]["node"] for e in node_events] == ["intent_node", "find_node"]
+    assert [e["data"]["node"] for e in node_events] == [
+        "intent_node", "find_node", "dedupe_node", "research_node", "score_node",
+    ]
     assert node_events[0]["data"]["data"]["intent"] == "find_leads"
 
     assert len(result_events) == 1

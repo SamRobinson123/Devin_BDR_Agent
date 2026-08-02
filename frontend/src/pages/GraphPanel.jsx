@@ -5,21 +5,37 @@ function statusFor(path, nodeName) {
   return entry ? entry.status : 'pending'
 }
 
+function Node({ path, name }) {
+  return <div className={`graph-node ${statusFor(path, name)}`}>{name}</div>
+}
+
 export default function GraphPanel({ path }) {
   return (
     <div className="graph-panel">
       <div className="graph-row">
-        <div className={`graph-node ${statusFor(path, 'intent_node')}`}>intent_node</div>
+        <Node path={path} name="intent_node" />
       </div>
       <div className="graph-row graph-row-fork">
-        <div className={`graph-node ${statusFor(path, 'find_node')}`}>find_node</div>
-        <div className={`graph-node ${statusFor(path, 'enrich_node')}`}>enrich_node</div>
+        <Node path={path} name="find_node" />
+        <Node path={path} name="enrich_node" />
       </div>
       <div className="graph-row">
-        <div className={`graph-node ${statusFor(path, 'human_gate')}`}>human_gate</div>
+        <Node path={path} name="dedupe_node" />
       </div>
       <div className="graph-row">
-        <div className={`graph-node ${statusFor(path, 'apollo_phone_node')}`}>apollo_phone_node</div>
+        <Node path={path} name="research_node" />
+      </div>
+      <div className="graph-row">
+        <Node path={path} name="score_node" />
+      </div>
+      <div className="graph-row">
+        <Node path={path} name="human_gate" />
+      </div>
+      <div className="graph-row">
+        <Node path={path} name="apollo_phone_node" />
+      </div>
+      <div className="graph-row">
+        <Node path={path} name="draft_node" />
       </div>
     </div>
   )

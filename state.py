@@ -10,6 +10,7 @@ class AgentState(TypedDict):
     intent: str
     leads: list
     enriched: list
+    skipped: list
     gate_decision: str
 
 
