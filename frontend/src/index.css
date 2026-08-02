@@ -1,0 +1,74 @@
+:root {
+  --sans: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* Chat surface (ChatGPT-like) */
+  --chat-bg: #ffffff;
+  --chat-sidebar-bg: #f9f9f9;
+  --chat-border: #e5e5e5;
+  --chat-text: #0d0d0d;
+  --chat-text-secondary: #6e6e80;
+  --chat-bubble-user: #f4f4f4;
+  --chat-radius: 12px;
+
+  /* Leads/CRM surface */
+  --crm-header-bg: #f9fafb;
+  --crm-border: #e5e7eb;
+  --crm-row-hover: #f9fafb;
+  --crm-accent: #2563eb;
+  --crm-accent-hover: #1d4ed8;
+  --crm-text: #111827;
+  --crm-text-secondary: #6b7280;
+
+  --status-verified-fg: #16a34a;
+  --status-verified-bg: #dcfce7;
+  --status-not-found-fg: #6b7280;
+  --status-not-found-bg: #f3f4f6;
+  --status-error-fg: #dc2626;
+  --status-error-bg: #fee2e2;
+  --status-pending-fg: #d97706;
+  --status-pending-bg: #fef3c7;
+
+  font: 15px/1.5 var(--sans);
+  color: var(--chat-text);
+  background: var(--chat-bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100svh;
+  width: 100%;
+  display: flex;
+}
+
+button {
+  font: inherit;
+}
+
+input,
+textarea {
+  font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--crm-accent, #2563eb);
+  outline-offset: 2px;
+}

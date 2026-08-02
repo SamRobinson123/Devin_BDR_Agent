@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+agent.db
+leads.db
+node_modules/

@@ -1,0 +1,73 @@
+<h2>Graph visualization panel — layout</h2>
+<p class="subtitle">Shown below the chat thread while a message is in flight. Which style fits?</p>
+
+<div class="cards">
+  <div class="card" data-choice="horizontal" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-body" style="display:flex; align-items:center; gap:8px; padding:20px 10px; font-family:monospace; font-size:12px;">
+          <div style="border:2px solid #16a34a; background:#dcfce7; border-radius:8px; padding:8px 10px;">intent_node ✓</div>
+          <div style="color:#999;">──▶</div>
+          <div style="border:2px solid #2563eb; background:#dbeafe; border-radius:8px; padding:8px 10px; box-shadow:0 0 0 3px rgba(37,99,235,0.25);">find_node ●</div>
+          <div style="color:#999;">──▶</div>
+          <div style="border:1px solid #d1d5db; border-radius:8px; padding:8px 10px; color:#9ca3af;">human_gate</div>
+          <div style="color:#999;">──▶</div>
+          <div style="border:1px solid #d1d5db; border-radius:8px; padding:8px 10px; color:#9ca3af;">enrich_node</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Horizontal timeline</h3>
+      <p>Left-to-right steps like a progress tracker. Simple, reads like a checklist, but doesn't show the fork (find vs enrich) or that human_gate/enrich are shared.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="minigraph" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-body" style="padding:20px; font-family:monospace; font-size:11px;">
+          <div style="display:flex; justify-content:center; margin-bottom:10px;">
+            <div style="border:2px solid #16a34a; background:#dcfce7; border-radius:6px; padding:6px 10px;">intent_node ✓</div>
+          </div>
+          <div style="display:flex; justify-content:center; gap:40px; margin-bottom:6px; color:#999;">
+            <span>↙</span><span>↘</span>
+          </div>
+          <div style="display:flex; justify-content:center; gap:16px; margin-bottom:10px;">
+            <div style="border:2px solid #2563eb; background:#dbeafe; border-radius:6px; padding:6px 10px; box-shadow:0 0 0 3px rgba(37,99,235,0.25);">find_node ●</div>
+            <div style="border:1px dashed #d1d5db; border-radius:6px; padding:6px 10px; color:#c4c4c4;">(enrich_leads path)</div>
+          </div>
+          <div style="display:flex; justify-content:center; margin-bottom:6px; color:#999;">↓</div>
+          <div style="display:flex; justify-content:center; margin-bottom:6px;">
+            <div style="border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; color:#9ca3af;">human_gate</div>
+          </div>
+          <div style="display:flex; justify-content:center; margin-bottom:6px; color:#999;">↓</div>
+          <div style="display:flex; justify-content:center; gap:8px;">
+            <div style="border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; color:#9ca3af;">enrich_node</div>
+            <div style="border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; color:#9ca3af;">apollo_phone_node</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Mini node-graph</h3>
+      <p>Mirrors the real graph shape from the spec: the intent fork, the shared enrich_node reached two ways. More visually complex, but accurately shows what's actually happening architecturally.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="verticallist" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-body" style="padding:16px; font-family:monospace; font-size:12px; display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px;"><span style="color:#16a34a;">✓</span> intent_node</div>
+          <div style="display:flex; align-items:center; gap:8px; font-weight:600;"><span style="color:#2563eb;">●</span> find_node <span style="color:#999; font-weight:400;">— running…</span></div>
+          <div style="display:flex; align-items:center; gap:8px; color:#c4c4c4;"><span>○</span> human_gate</div>
+          <div style="display:flex; align-items:center; gap:8px; color:#c4c4c4;"><span>○</span> enrich_node</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Vertical step list</h3>
+      <p>Compact sidebar-style checklist, like a CI pipeline view. Least visually flashy, but very clear and cheap to build; doesn't show branching either.</p>
+    </div>
+  </div>
+</div>
