@@ -34,6 +34,16 @@ def test_send_slack_reports_transport_failure():
     assert result == {"channel": "slack", "ok": False, "error": "nope"}
 
 
+def test_send_slack_never_leaks_the_webhook_in_an_error():
+    url = "https://hooks.slack.com/services/T000/B000/SECRET"
+    settings = notifications.merge_defaults({"slack_webhook_url": url})
+    error = requests.HTTPError(f"404 Client Error: Not Found for url: {url}")
+    with patch("notifications.requests.post", side_effect=error):
+        result = notifications.send_slack(settings, "hi")
+    assert "SECRET" not in result["error"]
+    assert "<webhook url>" in result["error"]
+
+
 def test_send_email_refuses_incomplete_smtp_settings():
     result = notifications.send_email(notifications.merge_defaults({}), "s", "b")
     assert result["ok"] is False

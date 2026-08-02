@@ -46,6 +46,11 @@ def apply_update(stored: dict, update: dict) -> dict:
     return merged
 
 
+def _scrub(message: str, secret: str) -> str:
+    """requests embeds the request URL in its errors, which for Slack is the webhook secret."""
+    return message.replace(secret, "<webhook url>") if secret else message
+
+
 def send_slack(settings: dict, text: str) -> dict:
     url = settings.get("slack_webhook_url")
     if not url:
@@ -55,7 +60,7 @@ def send_slack(settings: dict, text: str) -> dict:
         resp.raise_for_status()
         return {"channel": "slack", "ok": True}
     except requests.RequestException as exc:
-        return {"channel": "slack", "ok": False, "error": str(exc)}
+        return {"channel": "slack", "ok": False, "error": _scrub(str(exc), url)}
 
 
 def send_email(settings: dict, subject: str, body: str) -> dict:
