@@ -103,7 +103,8 @@ def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
-def _save_result_to_db(values: dict) -> None:
+def _save_result_to_db(values: dict | None) -> None:
+    values = values or {}
     for lead in values.get("leads", []):
         upsert_lead(db_conn, {**lead, "source": "chat"})
     for lead in values.get("enriched", []):
@@ -156,6 +157,10 @@ def _stream_chat(input_or_command, config: dict):
         node_name = next(iter(update))
         if node_name == "__interrupt__":
             continue
+        # Persist as the run progresses so the Leads Database reflects each step.
+        # find_node output is skipped: dedupe_node compares it against the DB.
+        if node_name != "find_node":
+            _save_result_to_db(update[node_name])
         yield _sse("node", {"node": node_name, "data": update[node_name]})
 
     yield _sse("result", _build_result(config))

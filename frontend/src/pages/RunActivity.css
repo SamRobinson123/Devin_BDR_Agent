@@ -1,0 +1,138 @@
+.run-activity {
+  border: 1px solid var(--chat-border);
+  border-radius: 14px;
+  background: var(--chat-surface-raised);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13.5px;
+}
+
+.run-activity-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 4px 8px;
+  color: var(--chat-text-secondary);
+  font-size: 12.5px;
+}
+
+.run-activity-title {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.run-activity-link {
+  border: none;
+  background: transparent;
+  color: var(--crm-accent);
+  cursor: pointer;
+  padding: 0;
+  font-size: 12.5px;
+}
+
+.run-activity-link:hover {
+  text-decoration: underline;
+}
+
+.run-step {
+  padding: 6px 4px;
+  border-top: 1px solid var(--chat-border);
+  animation: run-step-in 0.25s ease-out;
+}
+
+.run-step:first-of-type {
+  border-top: none;
+}
+
+@keyframes run-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.run-step-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.run-step-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.run-step[data-running='true'] .run-step-icon {
+  animation: run-step-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes run-step-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.run-step-title {
+  color: var(--chat-text);
+}
+
+.run-step-detail {
+  color: var(--chat-text-secondary);
+  font-size: 12.5px;
+}
+
+.run-step-toggle {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--chat-text-secondary);
+  font-size: 12.5px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.run-step-toggle:hover {
+  background: var(--chat-hover);
+  color: var(--chat-text);
+}
+
+.run-step-rows {
+  list-style: none;
+  margin: 6px 0 4px;
+  padding: 0 0 0 21px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.run-step-rows li {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.run-row-title {
+  font-weight: 500;
+  color: var(--chat-text);
+}
+
+.run-row-text {
+  color: var(--chat-text-secondary);
+  white-space: pre-wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.run-row-link {
+  color: var(--crm-accent);
+  font-size: 12.5px;
+}

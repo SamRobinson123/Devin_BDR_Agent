@@ -1,8 +1,11 @@
 .leads-page {
   padding: 24px 32px;
-  height: 100svh;
-  overflow-y: auto;
-  background: #fff;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--chat-bg);
 }
 
 .leads-header {
@@ -45,7 +48,7 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--crm-text);
-  background: white;
+  background: var(--chat-surface);
   cursor: pointer;
 }
 
@@ -77,7 +80,8 @@
 }
 
 .leads-enrich-button:disabled {
-  background: #d1d5db;
+  background: var(--chat-border-strong);
+  color: var(--chat-text-secondary);
   cursor: not-allowed;
 }
 
@@ -89,8 +93,9 @@
 .leads-table-wrap {
   border: 1px solid var(--crm-border);
   border-radius: 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -206,7 +211,7 @@
 }
 
 .leads-row:hover {
-  background: #f9fafb;
+  background: var(--crm-row-hover);
 }
 
 .leads-linkedin {
@@ -221,7 +226,7 @@
 }
 
 .leads-detail-row td {
-  background: #f9fafb;
+  background: var(--chat-surface-raised);
 }
 
 .leads-detail {

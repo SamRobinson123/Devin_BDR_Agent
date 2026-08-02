@@ -65,7 +65,11 @@ export default function LeadsDatabase({ active = true }) {
   }
 
   useEffect(() => {
-    if (active) refresh()
+    if (!active) return
+    refresh()
+    // Poll so leads the agent saves mid-run show up without a manual reload.
+    const timer = setInterval(refresh, 5000)
+    return () => clearInterval(timer)
   }, [active])
 
   function toggle(id) {
