@@ -89,6 +89,7 @@ export default function LeadsDatabase({ active = true }) {
               <th>Name</th>
               <th>Company</th>
               <th>Domain</th>
+              <th>Fit</th>
               <th>Email</th>
               <th>Email status</th>
               <th>Phone</th>
@@ -115,6 +116,9 @@ export default function LeadsDatabase({ active = true }) {
                 </td>
                 <td>{lead.company}</td>
                 <td>{lead.domain}</td>
+                <td title={lead.fit_reason || ''}>
+                  {lead.fit_score === null || lead.fit_score === undefined ? '—' : lead.fit_score}
+                </td>
                 <td>{lead.email || '—'}</td>
                 <td><StatusPill value={lead.status} /></td>
                 <td>{lead.phone || '—'}</td>

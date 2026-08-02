@@ -15,6 +15,10 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import interrupt
 
 from constants import llm
+from nodes.dedupe import dedupe_node
+from nodes.research import research_node
+from nodes.score import score_node
+from nodes.draft import draft_node
 
 AGENT_DB_PATH = os.getenv("AGENT_DB_PATH", "agent.db")
 
@@ -28,6 +32,7 @@ class AgentState(TypedDict):
     intent: str
     leads: list
     enriched: list
+    skipped: list
     gate_decision: str
 
 
@@ -201,11 +206,14 @@ def apollo_phone_node(state: AgentState) -> dict:
 # ------------------------------------------------------------------------------------------
 
 def human_gate(state: AgentState) -> dict:
-    """Pause and ask the human what to do with the found leads."""
+    """Pause and ask the human what to do with the qualified leads."""
     count = len(state.get("leads", []))
+    skipped = len(state.get("skipped", []))
+    already = f" ({skipped} already in your database, skipped)" if skipped else ""
     decision = interrupt({
-        "message": f"Found {count} leads. Reply 'enrich' to validate emails and "
-                   f"look up phone numbers, or 'done' to stop.",
+        "message": f"Found {count} new leads{already}, ranked by ICP fit. Reply "
+                   f"'enrich' to validate emails and phone numbers, 'draft' to also "
+                   f"write personalized openers, or 'done' to stop.",
         "leads": state.get("leads", []),
     })
     return {"gate_decision": decision}
@@ -213,7 +221,12 @@ def human_gate(state: AgentState) -> dict:
 
 def route_after_gate(state: AgentState) -> str:
     """Route to the shared enrich node or end, based on the human's reply."""
-    return "enrich_node" if state.get("gate_decision") == "enrich" else END
+    return "enrich_node" if state.get("gate_decision") in ("enrich", "draft") else END
+
+
+def route_after_phone(state: AgentState) -> str:
+    """Only write outreach drafts when the human explicitly asked for them."""
+    return "draft_node" if state.get("gate_decision") == "draft" else END
 
 
 # ------------------------------------------------------------------------------------------
@@ -225,9 +238,13 @@ def build_graph(checkpointer=None):
 
     g.add_node("intent_node", intent_node)
     g.add_node("find_node", find_node)
+    g.add_node("dedupe_node", dedupe_node)
+    g.add_node("research_node", lambda state: research_node(state, llm=llm))
+    g.add_node("score_node", lambda state: score_node(state, llm=llm))
     g.add_node("human_gate", human_gate)
     g.add_node("enrich_node", enrich_node)
     g.add_node("apollo_phone_node", apollo_phone_node)
+    g.add_node("draft_node", lambda state: draft_node(state, llm=llm))
 
     g.add_edge(START, "intent_node")
     g.add_conditional_edges("intent_node", route_by_intent, {
@@ -235,13 +252,20 @@ def build_graph(checkpointer=None):
         "enrich_leads": "enrich_node",
         "clarify": END,
     })
-    g.add_edge("find_node", "human_gate")
+    g.add_edge("find_node", "dedupe_node")
+    g.add_edge("dedupe_node", "research_node")
+    g.add_edge("research_node", "score_node")
+    g.add_edge("score_node", "human_gate")
     g.add_conditional_edges("human_gate", route_after_gate, {
         "enrich_node": "enrich_node",
         END: END,
     })
     g.add_edge("enrich_node", "apollo_phone_node")
-    g.add_edge("apollo_phone_node", END)
+    g.add_conditional_edges("apollo_phone_node", route_after_phone, {
+        "draft_node": "draft_node",
+        END: END,
+    })
+    g.add_edge("draft_node", END)
 
     if checkpointer is None:
         conn = sqlite3.connect(AGENT_DB_PATH, check_same_thread=False)
@@ -261,7 +285,7 @@ if __name__ == "__main__":
     config = {"configurable": {"thread_id": "demo-1"}}
     final = app.invoke(
         {"messages": [HumanMessage(content=text)],
-         "intent": "", "leads": [], "enriched": [], "gate_decision": ""},
+         "intent": "", "leads": [], "enriched": [], "skipped": [], "gate_decision": ""},
         config,
     )
 
@@ -270,7 +294,7 @@ if __name__ == "__main__":
         print(payload["message"])
         for lead in payload["leads"]:
             print(" -", lead)
-        reply = input("enrich / done > ").strip().lower()
+        reply = input("enrich / draft / done > ").strip().lower()
         final = app.invoke(Command(resume=reply), config)
 
     print("intent  :", final.get("intent"))
