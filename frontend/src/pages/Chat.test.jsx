@@ -3,6 +3,11 @@ import { vi, describe, it, expect, beforeEach } from 'vitest'
 import Chat from './Chat'
 import * as api from '../api'
 
+function ask(text = 'find VPs') {
+  fireEvent.change(screen.getByPlaceholderText(/message/i), { target: { value: text } })
+  fireEvent.click(screen.getByLabelText('Send'))
+}
+
 describe('Chat page', () => {
   beforeEach(() => {
     vi.spyOn(api, 'sendChat')
@@ -15,8 +20,7 @@ describe('Chat page', () => {
     })
 
     render(<Chat />)
-    fireEvent.change(screen.getByPlaceholderText(/message/i), { target: { value: 'find VPs' } })
-    fireEvent.click(screen.getByText(/send/i))
+    ask()
 
     await waitFor(() => expect(screen.getByText('Enrich')).toBeInTheDocument())
     expect(screen.getByText('Done')).toBeInTheDocument()
@@ -28,8 +32,7 @@ describe('Chat page', () => {
       .mockResolvedValueOnce({ reply: 'Enriched.', leads: [], paused: false, gate_message: null })
 
     render(<Chat />)
-    fireEvent.change(screen.getByPlaceholderText(/message/i), { target: { value: 'find VPs' } })
-    fireEvent.click(screen.getByText(/send/i))
+    ask()
     await waitFor(() => screen.getByText('Enrich'))
 
     fireEvent.click(screen.getByText('Enrich'))
@@ -46,11 +49,28 @@ describe('Chat page', () => {
     })
 
     render(<Chat />)
-    fireEvent.change(screen.getByPlaceholderText(/message/i), { target: { value: 'find VPs' } })
-    fireEvent.click(screen.getByText(/send/i))
+    ask()
 
     await waitFor(() =>
-      expect(screen.getByText('find_node').closest('.graph-node')).toHaveClass('completed')
+      expect(document.querySelector('[data-node="find_node"]')).toHaveClass('completed')
     )
+  })
+
+  it('renders the search results from node events in the chat', async () => {
+    api.sendChat.mockImplementation(async (message, threadId, onNodeEvent) => {
+      onNodeEvent({
+        node: 'find_node',
+        data: { leads: [{ first_name: 'Ada', last_name: 'Lovelace', company: 'X', domain: 'x.io' }] },
+      })
+      return { reply: 'Found 1 leads.', leads: [], paused: true, gate_message: 'x' }
+    })
+
+    render(<Chat />)
+    ask()
+
+    await waitFor(() => expect(screen.getByText('Searched the web for prospects')).toBeInTheDocument())
+    expect(screen.getByText('1 prospect')).toBeInTheDocument()
+    expect(screen.getByText('Ada Lovelace')).toBeInTheDocument()
+    expect(screen.getByText('X · x.io')).toBeInTheDocument()
   })
 })

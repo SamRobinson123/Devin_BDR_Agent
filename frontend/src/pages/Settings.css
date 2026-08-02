@@ -1,9 +1,11 @@
 .settings-page {
   padding: 24px 32px;
-  height: 100svh;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  background: #fff;
-  max-width: 720px;
+  background: var(--chat-bg);
+  width: 100%;
+  max-width: 760px;
 }
 
 .settings-header {
@@ -70,6 +72,8 @@
   border: 1px solid var(--crm-border, #e5e7eb);
   border-radius: 6px;
   padding: 8px 10px;
+  background: var(--chat-surface);
+  color: var(--chat-text);
   font: 13px var(--sans);
 }
 
@@ -93,7 +97,7 @@
 
 .settings-test {
   border: 1px solid var(--crm-border, #e5e7eb);
-  background: #fff;
+  background: var(--chat-surface);
   border-radius: 6px;
   padding: 7px 12px;
   font-size: 13px;
@@ -101,7 +105,7 @@
 }
 
 .settings-test:hover {
-  background: #f9fafb;
+  background: var(--chat-hover);
 }
 
 .settings-actions {

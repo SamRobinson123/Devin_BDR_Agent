@@ -3,12 +3,20 @@
 
   /* Chat surface (ChatGPT-like) */
   --chat-bg: #ffffff;
+  --chat-surface: #ffffff;
+  --chat-surface-raised: #f7f7f8;
   --chat-sidebar-bg: #f9f9f9;
   --chat-border: #e5e5e5;
+  --chat-border-strong: #d4d4d8;
   --chat-text: #0d0d0d;
   --chat-text-secondary: #6e6e80;
   --chat-bubble-user: #f4f4f4;
+  --chat-hover: rgba(0, 0, 0, 0.05);
+  --chat-hover-strong: rgba(0, 0, 0, 0.08);
   --chat-radius: 12px;
+  --chat-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.06);
+  --accent: #10a37f;
+  --accent-soft: rgba(16, 163, 127, 0.12);
 
   /* Leads/CRM surface */
   --crm-header-bg: #f9fafb;
@@ -28,6 +36,7 @@
   --status-pending-fg: #d97706;
   --status-pending-bg: #fef3c7;
 
+  color-scheme: light;
   font: 15px/1.5 var(--sans);
   color: var(--chat-text);
   background: var(--chat-bg);
@@ -37,32 +46,75 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+:root[data-theme='dark'] {
+  --chat-bg: #212121;
+  --chat-surface: #2a2a2a;
+  --chat-surface-raised: #303030;
+  --chat-sidebar-bg: #181818;
+  --chat-border: #3a3a3a;
+  --chat-border-strong: #4b4b4b;
+  --chat-text: #ececf1;
+  --chat-text-secondary: #a1a1aa;
+  --chat-bubble-user: #303030;
+  --chat-hover: rgba(255, 255, 255, 0.06);
+  --chat-hover-strong: rgba(255, 255, 255, 0.1);
+  --chat-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --accent: #19c37d;
+  --accent-soft: rgba(25, 195, 125, 0.16);
+
+  --crm-header-bg: #262626;
+  --crm-border: #3a3a3a;
+  --crm-row-hover: #2c2c2c;
+  --crm-accent: #60a5fa;
+  --crm-accent-hover: #93c5fd;
+  --crm-text: #ececf1;
+  --crm-text-secondary: #a1a1aa;
+
+  --status-verified-fg: #4ade80;
+  --status-verified-bg: rgba(74, 222, 128, 0.14);
+  --status-not-found-fg: #a1a1aa;
+  --status-not-found-bg: rgba(161, 161, 170, 0.14);
+  --status-error-fg: #f87171;
+  --status-error-bg: rgba(248, 113, 113, 0.14);
+  --status-pending-fg: #fbbf24;
+  --status-pending-bg: rgba(251, 191, 36, 0.14);
+
+  color-scheme: dark;
+}
+
 * {
   box-sizing: border-box;
 }
 
-html {
-  overflow-x: hidden;
+html,
+body {
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
   margin: 0;
-  overflow-x: hidden;
+  background: var(--chat-bg);
+  color: var(--chat-text);
 }
 
 #root {
-  min-height: 100svh;
+  height: 100dvh;
   width: 100%;
   display: flex;
+  overflow: hidden;
 }
 
 button {
   font: inherit;
+  color: inherit;
 }
 
 input,
-textarea {
+textarea,
+select {
   font: inherit;
+  color: inherit;
 }
 
 button:focus-visible,
@@ -71,4 +123,20 @@ textarea:focus-visible,
 a:focus-visible {
   outline: 2px solid var(--crm-accent, #2563eb);
   outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--chat-border-strong);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
 }
