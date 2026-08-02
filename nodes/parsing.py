@@ -23,6 +23,18 @@ def _strip_fences(text: str) -> str:
     return text
 
 
+def parse_json_array(content) -> list:
+    text = _strip_fences(extract_text(content))
+    match = re.search(r"\[.*\]", text, re.DOTALL)
+    if not match:
+        return []
+    try:
+        data = json.loads(match.group(0))
+    except (json.JSONDecodeError, TypeError):
+        return []
+    return data if isinstance(data, list) else []
+
+
 def parse_json_object(content) -> dict:
     text = _strip_fences(extract_text(content))
     match = re.search(r"\{.*\}", text, re.DOTALL)

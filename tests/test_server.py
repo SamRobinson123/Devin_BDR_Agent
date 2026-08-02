@@ -50,7 +50,7 @@ def _verifier_resp(result, email):
     return m
 
 
-@patch("graph.requests.get")
+@patch("nodes.enrich.requests.get")
 def test_enrich_endpoint_updates_db_rows(mock_get, tmp_path, monkeypatch):
     monkeypatch.setenv("LEADS_DB_PATH", str(tmp_path / "test_leads3.db"))
     import importlib
@@ -129,7 +129,8 @@ def test_chat_find_intent_streams_node_events_and_pauses(tmp_path, monkeypatch):
     result_events = [e for e in events if e["event"] == "result"]
 
     assert [e["data"]["node"] for e in node_events] == [
-        "intent_node", "find_node", "dedupe_node", "research_node", "score_node",
+        "intent_node", "find_node", "dedupe_node", "research_node", "profile_node",
+        "score_node",
     ]
     assert node_events[0]["data"]["data"]["intent"] == "find_leads"
 
@@ -162,7 +163,7 @@ def test_chat_enrich_after_gate_streams_and_updates_db(tmp_path, monkeypatch):
         '[{"first_name": "Jane", "last_name": "Doe", "company": "Acme", "domain": "acme.com"}]'
     ))
 
-    with patch("graph.llm", fake_llm), patch("graph.requests.get") as mock_get:
+    with patch("graph.llm", fake_llm), patch("nodes.enrich.requests.get") as mock_get:
         mock_get.return_value = _verifier_resp("deliverable", "jane.doe@acme.com")
         import server
         importlib.reload(server)
@@ -180,7 +181,7 @@ def test_chat_enrich_after_gate_streams_and_updates_db(tmp_path, monkeypatch):
 
     events = _parse_sse(body)
     node_events = [e["data"]["node"] for e in events if e["event"] == "node"]
-    assert node_events == ["human_gate", "enrich_node", "apollo_phone_node"]
+    assert node_events == ["human_gate", "enrich_node", "phone_node", "notify_node"]
 
     result = next(e["data"] for e in events if e["event"] == "result")
     assert result["paused"] is False
@@ -188,3 +189,34 @@ def test_chat_enrich_after_gate_streams_and_updates_db(tmp_path, monkeypatch):
     saved = client.get("/leads").json()
     assert saved[0]["email"] == "jane.doe@acme.com"
     assert saved[0]["status"] == "verified"
+
+
+def test_notification_settings_roundtrip_never_echoes_secrets(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEADS_DB_PATH", str(tmp_path / "test_leads6.db"))
+    import importlib
+    import server
+    importlib.reload(server)
+
+    client = TestClient(server.app)
+    assert client.get("/settings/notifications").json()["slack_webhook_url_set"] is False
+
+    saved = client.put("/settings/notifications", json={
+        "slack_enabled": True, "slack_webhook_url": "https://hooks.slack.com/services/x",
+    }).json()
+    assert saved["slack_enabled"] is True
+    assert "slack_webhook_url" not in saved
+    assert saved["slack_webhook_url_set"] is True
+
+    client.put("/settings/notifications", json={"slack_webhook_url": ""})
+    assert client.get("/settings/notifications").json()["slack_webhook_url_set"] is True
+
+
+def test_test_notification_reports_channel_failure(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEADS_DB_PATH", str(tmp_path / "test_leads7.db"))
+    import importlib
+    import server
+    importlib.reload(server)
+
+    client = TestClient(server.app)
+    resp = client.post("/settings/notifications/test", json={"channel": "slack"})
+    assert resp.json()["ok"] is False

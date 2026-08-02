@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import Chat from './pages/Chat'
 import LeadsDatabase from './pages/LeadsDatabase'
+import Settings from './pages/Settings'
 import './App.css'
 
 const NAV_ITEMS = [
   { id: 'chat', icon: '💬', label: 'Chat' },
   { id: 'leads', icon: '📇', label: 'Leads Database' },
+  { id: 'settings', icon: '⚙️', label: 'Settings' },
 ]
 
 export default function App() {
@@ -34,6 +36,9 @@ export default function App() {
         </div>
         <div style={{ display: tab === 'leads' ? 'contents' : 'none' }}>
           <LeadsDatabase active={tab === 'leads'} />
+        </div>
+        <div style={{ display: tab === 'settings' ? 'contents' : 'none' }}>
+          <Settings active={tab === 'settings'} />
         </div>
       </div>
     </div>

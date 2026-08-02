@@ -13,8 +13,49 @@ function StatusPill({ value }) {
   return <span className={`status-pill ${value}`}>{value.replace('_', ' ')}</span>
 }
 
+function DetailRow({ lead, colSpan }) {
+  const points = lead.talking_points || []
+  const priors = lead.prior_companies || []
+  return (
+    <tr className="leads-detail-row">
+      <td colSpan={colSpan}>
+        <div className="leads-detail">
+          {lead.person_summary && <p className="leads-detail-summary">{lead.person_summary}</p>}
+          <dl className="leads-detail-grid">
+            {lead.seniority && <><dt>Seniority</dt><dd>{lead.seniority}</dd></>}
+            {lead.tenure && <><dt>Tenure</dt><dd>{lead.tenure}</dd></>}
+            {priors.length > 0 && <><dt>Previously</dt><dd>{priors.join(', ')}</dd></>}
+            {lead.phone_source && <><dt>Phone source</dt><dd>{lead.phone_source}</dd></>}
+            {lead.research_summary && <><dt>Company</dt><dd>{lead.research_summary}</dd></>}
+            {lead.fit_reason && <><dt>Why they fit</dt><dd>{lead.fit_reason}</dd></>}
+          </dl>
+          {points.length > 0 && (
+            <>
+              <div className="leads-detail-heading">Talking points</div>
+              <ul className="leads-detail-points">
+                {points.map((point) => <li key={point}>{point}</li>)}
+              </ul>
+            </>
+          )}
+          {(lead.profile_sources || []).length > 0 && (
+            <div className="leads-detail-sources">
+              {lead.profile_sources.map((url) => (
+                <a key={url} href={url} target="_blank" rel="noreferrer">{new URL(url).hostname}</a>
+              ))}
+            </div>
+          )}
+          {!lead.person_summary && points.length === 0 && (
+            <p className="leads-detail-empty">No prospect research yet — run the agent on this lead.</p>
+          )}
+        </div>
+      </td>
+    </tr>
+  )
+}
+
 export default function LeadsDatabase({ active = true }) {
   const [leads, setLeads] = useState([])
+  const [expanded, setExpanded] = useState(null)
   const [selected, setSelected] = useState(new Set())
   const [uploadResult, setUploadResult] = useState(null)
   const [enriching, setEnriching] = useState(false)
@@ -87,6 +128,7 @@ export default function LeadsDatabase({ active = true }) {
             <tr>
               <th></th>
               <th>Name</th>
+              <th>Title</th>
               <th>Company</th>
               <th>Domain</th>
               <th>Fit</th>
@@ -97,9 +139,13 @@ export default function LeadsDatabase({ active = true }) {
             </tr>
           </thead>
           <tbody>
-            {leads.map((lead) => (
-              <tr key={lead.id}>
-                <td>
+            {leads.map((lead) => [
+              <tr
+                key={lead.id}
+                className="leads-row"
+                onClick={() => setExpanded(expanded === lead.id ? null : lead.id)}
+              >
+                <td onClick={(e) => e.stopPropagation()}>
                   {lead.status === 'pending' && (
                     <input
                       type="checkbox"
@@ -112,8 +158,19 @@ export default function LeadsDatabase({ active = true }) {
                   <div className="leads-name-cell">
                     <span className="leads-avatar">{initials(lead)}</span>
                     {lead.first_name} {lead.last_name}
+                    {lead.linkedin_url && (
+                      <a
+                        className="leads-linkedin"
+                        href={lead.linkedin_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="LinkedIn profile"
+                        onClick={(e) => e.stopPropagation()}
+                      >in</a>
+                    )}
                   </div>
                 </td>
+                <td>{lead.title || '—'}</td>
                 <td>{lead.company}</td>
                 <td>{lead.domain}</td>
                 <td title={lead.fit_reason || ''}>
@@ -123,8 +180,9 @@ export default function LeadsDatabase({ active = true }) {
                 <td><StatusPill value={lead.status} /></td>
                 <td>{lead.phone || '—'}</td>
                 <td><StatusPill value={lead.phone_status} /></td>
-              </tr>
-            ))}
+              </tr>,
+              expanded === lead.id && <DetailRow key={`${lead.id}-detail`} lead={lead} colSpan={10} />,
+            ])}
           </tbody>
         </table>
         {leads.length === 0 && (

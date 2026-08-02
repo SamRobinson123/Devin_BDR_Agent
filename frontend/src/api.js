@@ -41,6 +41,29 @@ export async function uploadLeadsCsv(file) {
   return resp.json()
 }
 
+export async function getNotificationSettings() {
+  const resp = await fetch(`${BASE_URL}/settings/notifications`)
+  return resp.json()
+}
+
+export async function saveNotificationSettings(settings) {
+  const resp = await fetch(`${BASE_URL}/settings/notifications`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  })
+  return resp.json()
+}
+
+export async function testNotification(channel) {
+  const resp = await fetch(`${BASE_URL}/settings/notifications/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ channel }),
+  })
+  return resp.json()
+}
+
 export async function enrichLeads(leadIds) {
   const resp = await fetch(`${BASE_URL}/leads/enrich`, {
     method: 'POST',

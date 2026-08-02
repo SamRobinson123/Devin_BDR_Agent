@@ -26,16 +26,22 @@ export default function GraphPanel({ path }) {
         <Node path={path} name="research_node" />
       </div>
       <div className="graph-row">
+        <Node path={path} name="profile_node" />
+      </div>
+      <div className="graph-row">
         <Node path={path} name="score_node" />
       </div>
       <div className="graph-row">
         <Node path={path} name="human_gate" />
       </div>
       <div className="graph-row">
-        <Node path={path} name="apollo_phone_node" />
+        <Node path={path} name="phone_node" />
       </div>
       <div className="graph-row">
         <Node path={path} name="draft_node" />
+      </div>
+      <div className="graph-row">
+        <Node path={path} name="notify_node" />
       </div>
     </div>
   )

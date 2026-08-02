@@ -6,7 +6,9 @@ from state import AgentState
 DRAFT_SYSTEM = SystemMessage(content=(
     "You write first-touch cold emails for a BDR team. Return ONLY a JSON object with "
     "keys subject and body. Under 120 words, no fluff, one specific personalization "
-    "drawn from the research, and one clear ask for a short call. No markdown fences."
+    "drawn from the research — prefer a person-level talking point over a company "
+    "fact — and one clear ask for a short call. Never reference a talking point that "
+    "was not provided. No markdown fences."
 ))
 
 
@@ -17,7 +19,9 @@ def _draft_one(lead: dict, offer: str, llm) -> dict:
             f"What we sell / who we are: {offer}\n"
             f"Prospect: {lead.get('first_name')} {lead.get('last_name')}, "
             f"{lead.get('title') or 'unknown title'} at {lead.get('company')}\n"
-            f"Research: {lead.get('research_summary') or 'none'}\n"
+            f"Company research: {lead.get('research_summary') or 'none'}\n"
+            f"About them: {lead.get('person_summary') or 'none'}\n"
+            f"Talking points: {lead.get('talking_points') or 'none'}\n"
             f"Why they fit: {lead.get('fit_reason') or 'unknown'}"
         )),
     ])

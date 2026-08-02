@@ -11,7 +11,7 @@ def _verifier_resp(result):
     return m
 
 
-@patch("graph.requests.get")
+@patch("nodes.enrich.requests.get")
 def test_enrich_intent_end_to_end(mock_get):
     mock_get.return_value = _verifier_resp("deliverable")
     from graph import build_graph, Intent
