@@ -58,6 +58,28 @@ CREATE TABLE IF NOT EXISTS settings (
 )
 """
 
+USAGE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS usage_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    model TEXT,
+    requests INTEGER NOT NULL DEFAULT 1,
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+    cost_usd REAL NOT NULL DEFAULT 0
+)
+"""
+
+USAGE_SUMS = ("SUM(requests) AS requests, SUM(input_tokens) AS input_tokens, "
+              "SUM(output_tokens) AS output_tokens, "
+              "SUM(cache_read_tokens) AS cache_read_tokens, "
+              "SUM(cache_write_tokens) AS cache_write_tokens, "
+              "SUM(cost_usd) AS cost_usd")
+
 
 def _migrate(conn: sqlite3.Connection) -> None:
     present = {r["name"] for r in conn.execute("PRAGMA table_info(leads)").fetchall()}
@@ -72,6 +94,7 @@ def init_db(path: str) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute(SCHEMA)
     conn.execute(SETTINGS_SCHEMA)
+    conn.execute(USAGE_SCHEMA)
     conn.commit()
     _migrate(conn)
     return conn
@@ -111,6 +134,39 @@ def set_setting(conn: sqlite3.Connection, key: str, value: dict) -> None:
         (key, json.dumps(value), _now()),
     )
     conn.commit()
+
+
+def record_usage_event(conn: sqlite3.Connection, event: dict) -> None:
+    conn.execute(
+        "INSERT INTO usage_events (ts, provider, kind, model, requests, input_tokens, "
+        "output_tokens, cache_read_tokens, cache_write_tokens, cost_usd) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (event.get("ts") or _now(), event["provider"], event["kind"], event.get("model"),
+         int(event.get("requests", 1)), int(event.get("input_tokens", 0)),
+         int(event.get("output_tokens", 0)), int(event.get("cache_read_tokens", 0)),
+         int(event.get("cache_write_tokens", 0)), float(event.get("cost_usd", 0.0))),
+    )
+    conn.commit()
+
+
+def usage_grouped(conn: sqlite3.Connection, group_by: str, since: str) -> list[dict]:
+    """Aggregate the usage ledger by 'day', 'provider', 'model' or 'kind'."""
+    columns = {"day": "substr(ts, 1, 10)", "provider": "provider",
+               "model": "model", "kind": "kind"}
+    column = columns[group_by]
+    rows = conn.execute(
+        f"SELECT {column} AS {group_by}, {USAGE_SUMS} FROM usage_events "
+        f"WHERE ts >= ? GROUP BY {column} ORDER BY {group_by}",
+        (since,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def usage_totals(conn: sqlite3.Connection, since: str) -> dict:
+    row = conn.execute(
+        f"SELECT {USAGE_SUMS} FROM usage_events WHERE ts >= ?", (since,)
+    ).fetchone()
+    return {k: v or 0 for k, v in dict(row).items()}
 
 
 def upsert_lead(conn: sqlite3.Connection, lead: dict) -> int:

@@ -30,6 +30,26 @@ db.upsert_lead(c, {'first_name':'Ada','last_name':'Lovelace','company':'X','doma
 ```
 A lead only shows the select checkbox when `status == 'pending'`.
 
+## Driving a Chat run without real LLM keys (stub SSE gateway)
+The frontend hardcodes `BASE_URL = 'http://localhost:8000'` (`frontend/src/api.js`) — there is no env
+override — so the way to fake an agent run is to put a stub on `:8000` and move the real server to
+`:8001`. Write a throwaway FastAPI app that proxies everything to `:8001` (httpx) except `POST /chat`,
+which streams canned frames; delete it when you're done (do not commit it).
+```python
+def sse(event, data): return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+# yield sse("node", {"node": "find_node", "data": {"leads": [...]}})  # sleep ~3s between frames
+# ... intent_node -> find_node -> dedupe_node -> research_node -> profile_node -> score_node
+# finally: yield sse("result", {"reply": "...", "leads": [...], "paused": False})
+```
+Notes that matter:
+- `Chat.jsx` derives the *current* node from `NEXT_NODE`, so the graph halo/animated edge only appears
+  while frames are still arriving — space frames ~3s apart or you will never screenshot the animation.
+- `RunActivity` reads `data.leads` / `data.enriched`, plus `data.skipped` for `dedupe_node` and
+  `data.intent` for `intent_node`. Only `find_node` results are expanded by default.
+- `/chat` traffic through the stub never reaches `server.py`, so the mid-run `_save_result_to_db`
+  persistence is NOT exercised this way — seed `leads.db` directly to test the Leads tab's 5s polling.
+- Pressing Enter in the composer submits (Shift+Enter newlines) — use Shift+Enter to test autogrow.
+
 ## Notification settings
 Stored as one JSON blob in the new `settings` table (`select value from settings`). Secrets
 (`slack_webhook_url`, `smtp_password`) are redacted by `GET /settings/notifications` into

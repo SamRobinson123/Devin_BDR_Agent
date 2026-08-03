@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import Chat from './pages/Chat'
 import LeadsDatabase from './pages/LeadsDatabase'
 import Settings from './pages/Settings'
+import Usage from './pages/Usage'
 import './App.css'
 
 const NAV_ITEMS = [
   { id: 'chat', icon: '💬', label: 'Chat' },
   { id: 'leads', icon: '📇', label: 'Leads Database' },
+  { id: 'usage', icon: '📊', label: 'Usage & Spend' },
   { id: 'settings', icon: '⚙️', label: 'Settings' },
 ]
 
@@ -85,6 +87,9 @@ export default function App() {
         </div>
         <div className="app-pane" hidden={tab !== 'leads'}>
           <LeadsDatabase active={tab === 'leads'} />
+        </div>
+        <div className="app-pane" hidden={tab !== 'usage'}>
+          <Usage active={tab === 'usage'} />
         </div>
         <div className="app-pane" hidden={tab !== 'settings'}>
           <Settings active={tab === 'settings'} />

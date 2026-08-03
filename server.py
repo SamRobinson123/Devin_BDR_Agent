@@ -13,6 +13,7 @@ from db import (init_db, list_leads, insert_csv_rows, get_leads_by_ids,
                 update_lead_enrichment, upsert_lead, get_setting, set_setting,
                 set_phone_source)
 import notifications
+import usage
 from nodes.enrich import enrich_node
 from nodes.phone import phone_node
 from graph import app as compiled_graph
@@ -70,6 +71,27 @@ def test_notification(req: TestNotificationRequest):
     if req.channel == "email":
         return notifications.send_email(settings, subject, body)
     return {"channel": req.channel, "ok": False, "error": "unknown channel"}
+
+
+def _usage_settings() -> dict:
+    return usage.merge_defaults(get_setting(db_conn, usage.SETTINGS_KEY))
+
+
+@app.get("/settings/usage")
+def read_usage_settings():
+    return usage.redact(_usage_settings())
+
+
+@app.put("/settings/usage")
+def write_usage_settings(update: dict):
+    merged = usage.apply_update(_usage_settings(), update)
+    set_setting(db_conn, usage.SETTINGS_KEY, merged)
+    return usage.redact(merged)
+
+
+@app.get("/usage")
+def read_usage():
+    return usage.summary(db_conn, _usage_settings(), os.getenv("HUNTER_API_KEY"))
 
 
 @app.get("/leads")

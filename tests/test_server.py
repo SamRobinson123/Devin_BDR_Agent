@@ -220,3 +220,48 @@ def test_test_notification_reports_channel_failure(tmp_path, monkeypatch):
     client = TestClient(server.app)
     resp = client.post("/settings/notifications/test", json={"channel": "slack"})
     assert resp.json()["ok"] is False
+
+
+def test_usage_settings_roundtrip_never_echoes_the_admin_key(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEADS_DB_PATH", str(tmp_path / "test_leads8.db"))
+    import importlib
+    import server
+    importlib.reload(server)
+
+    client = TestClient(server.app)
+    assert client.get("/settings/usage").json()["anthropic_admin_key_set"] is False
+
+    saved = client.put("/settings/usage", json={
+        "anthropic_admin_key": "sk-ant-admin-x", "monthly_budget_usd": 50,
+    }).json()
+    assert "anthropic_admin_key" not in saved
+    assert saved["anthropic_admin_key_set"] is True
+    assert saved["monthly_budget_usd"] == 50
+
+    client.put("/settings/usage", json={"anthropic_admin_key": ""})
+    assert client.get("/settings/usage").json()["anthropic_admin_key_set"] is True
+
+
+def test_usage_endpoint_reports_hunter_quota_and_ledger_spend(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEADS_DB_PATH", str(tmp_path / "test_leads9.db"))
+    monkeypatch.setenv("HUNTER_API_KEY", "hunter-key")
+    import importlib
+    import server
+    importlib.reload(server)
+
+    monkeypatch.setattr(server.usage, "hunter_account", lambda key: {
+        "configured": True, "plan_name": "Growth",
+        "quotas": [{"id": "verifications", "label": "Email verifications",
+                    "used": 10, "available": 100, "remaining": 90}],
+    })
+    server.db_conn.execute(
+        "INSERT INTO usage_events (ts, provider, kind, model, requests, input_tokens, "
+        "output_tokens, cost_usd) VALUES (replace(datetime('now'), ' ', 'T'), 'anthropic', 'llm', "
+        "'claude-sonnet-4-5', 1, 1000, 500, 0.011)"
+    )
+    server.db_conn.commit()
+
+    body = TestClient(server.app).get("/usage").json()
+    assert body["hunter"]["quotas"][0]["remaining"] == 90
+    assert body["anthropic"]["source"] == "estimated"
+    assert body["anthropic"]["spend_usd"] == 0.011

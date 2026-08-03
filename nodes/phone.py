@@ -1,6 +1,7 @@
 import os
 import re
 import requests
+import usage
 from state import AgentState
 
 DATAGMA_SEARCH_URL = "https://gateway.datagma.net/api/ingress/v1/search"
@@ -88,14 +89,15 @@ def _find_phone(lead: dict, lookup, api_key: str | None) -> dict:
         return {**lead, "phone_status": "found", "phone_source": lead.get("phone_source") or "web_search"}
     if not lookup:
         return {**lead, "phone": None, "phone_status": "not_found", "phone_source": None}
+    provider = (os.getenv("PHONE_PROVIDER") or "").strip().lower()
     try:
         phone = lookup(lead, api_key)
+        usage.record_api_call(provider, "phone_lookup")
     except requests.RequestException:
         return {**lead, "phone": None, "phone_status": "error", "phone_source": None}
     if not phone:
         return {**lead, "phone": None, "phone_status": "not_found", "phone_source": None}
-    return {**lead, "phone": phone, "phone_status": "found",
-            "phone_source": (os.getenv("PHONE_PROVIDER") or "").strip().lower()}
+    return {**lead, "phone": phone, "phone_status": "found", "phone_source": provider}
 
 
 def phone_node(state: AgentState) -> dict:
