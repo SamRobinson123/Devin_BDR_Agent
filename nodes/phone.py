@@ -5,7 +5,7 @@ from state import AgentState
 
 DATAGMA_SEARCH_URL = "https://gateway.datagma.net/api/ingress/v1/search"
 DATAGMA_FULL_URL = "https://gateway.datagma.net/api/ingress/v2/full"
-PROSPEO_ENRICH_URL = "https://api.prospeo.io/enrich"
+PROSPEO_ENRICH_URL = "https://api.prospeo.io/enrich-person"
 
 _PHONE_KEYS = ("mobile", "phone", "phone_number", "phoneNumber", "number",
                "mobile_number", "mobileNumber", "raw_number", "international")
@@ -52,18 +52,23 @@ def _datagma_lookup(lead: dict, api_key: str) -> str | None:
 
 
 def _prospeo_lookup(lead: dict, api_key: str) -> str | None:
-    body = {"reveal_phone_number": True}
+    data = {}
     if lead.get("linkedin_url"):
-        body["linkedin_url"] = lead["linkedin_url"]
+        data["linkedin_url"] = lead["linkedin_url"]
     elif lead.get("first_name") and lead.get("last_name") and lead.get("domain"):
-        body.update({"first_name": lead["first_name"], "last_name": lead["last_name"],
-                     "company_domain": lead["domain"]})
+        data.update({"first_name": lead["first_name"], "last_name": lead["last_name"],
+                     "company_website": lead["domain"]})
     else:
         return None
+    body = {"enrich_mobile": True, "data": data}
     resp = requests.post(PROSPEO_ENRICH_URL, json=body, timeout=30,
                          headers={"X-KEY": api_key, "Content-Type": "application/json"})
     resp.raise_for_status()
-    return _walk_for_phone(resp.json())
+    data = resp.json()
+    mobile = data.get("person", {}).get("mobile", {})
+    if mobile.get("revealed") and mobile.get("mobile"):
+        return mobile["mobile"]
+    return _walk_for_phone(data)
 
 
 PROVIDERS = {
