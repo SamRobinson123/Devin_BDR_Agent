@@ -149,23 +149,31 @@ def record_usage_event(conn: sqlite3.Connection, event: dict) -> None:
     conn.commit()
 
 
-def usage_grouped(conn: sqlite3.Connection, group_by: str, since: str) -> list[dict]:
+def _usage_filter(since: str, provider: str | None) -> tuple[str, list]:
+    if provider:
+        return "WHERE ts >= ? AND provider = ?", [since, provider]
+    return "WHERE ts >= ?", [since]
+
+
+def usage_grouped(conn: sqlite3.Connection, group_by: str, since: str,
+                  provider: str | None = None) -> list[dict]:
     """Aggregate the usage ledger by 'day', 'provider', 'model' or 'kind'."""
     columns = {"day": "substr(ts, 1, 10)", "provider": "provider",
                "model": "model", "kind": "kind"}
     column = columns[group_by]
+    where, params = _usage_filter(since, provider)
     rows = conn.execute(
         f"SELECT {column} AS {group_by}, {USAGE_SUMS} FROM usage_events "
-        f"WHERE ts >= ? GROUP BY {column} ORDER BY {group_by}",
-        (since,),
+        f"{where} GROUP BY {column} ORDER BY {group_by}",
+        params,
     ).fetchall()
     return [dict(r) for r in rows]
 
 
-def usage_totals(conn: sqlite3.Connection, since: str) -> dict:
-    row = conn.execute(
-        f"SELECT {USAGE_SUMS} FROM usage_events WHERE ts >= ?", (since,)
-    ).fetchone()
+def usage_totals(conn: sqlite3.Connection, since: str,
+                 provider: str | None = None) -> dict:
+    where, params = _usage_filter(since, provider)
+    row = conn.execute(f"SELECT {USAGE_SUMS} FROM usage_events {where}", params).fetchone()
     return {k: v or 0 for k, v in dict(row).items()}
 
 

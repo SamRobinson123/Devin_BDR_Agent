@@ -226,11 +226,12 @@ def summary(conn, settings: dict, hunter_key: str | None, now: datetime | None =
     month_start = _month_start(now).isoformat()
     window_start = (now - timedelta(days=30)).isoformat()
 
+    # The Claude card is Anthropic-only; the by_kind breakdown covers every provider.
     estimated = {
-        "month": usage_totals(conn, month_start),
-        "last_30_days": usage_totals(conn, window_start),
-        "daily": usage_grouped(conn, "day", window_start),
-        "by_model": usage_grouped(conn, "model", month_start),
+        "month": usage_totals(conn, month_start, "anthropic"),
+        "last_30_days": usage_totals(conn, window_start, "anthropic"),
+        "daily": usage_grouped(conn, "day", window_start, "anthropic"),
+        "by_model": usage_grouped(conn, "model", month_start, "anthropic"),
         "by_kind": usage_grouped(conn, "kind", month_start),
     }
     budget = float(settings.get("monthly_budget_usd") or 0)

@@ -13,6 +13,19 @@ _PHONE_KEYS = ("mobile", "phone", "phone_number", "phoneNumber", "number",
 _E164 = re.compile(r"^\+?[0-9][0-9\s().-]{6,20}$")
 
 
+def _record_lookup() -> None:
+    usage.record_api_call((os.getenv("PHONE_PROVIDER") or "").strip().lower(),
+                         "phone_lookup")
+
+
+def _billed_get(url: str, **kwargs):
+    """Only a request the provider actually answered counts against the plan."""
+    resp = requests.get(url, timeout=30, **kwargs)
+    resp.raise_for_status()
+    _record_lookup()
+    return resp
+
+
 def _walk_for_phone(payload) -> str | None:
     """Providers nest phone data differently and change shape between plans;
     take the first plausible phone-looking string under a phone-ish key."""
@@ -39,16 +52,15 @@ def _datagma_lookup(lead: dict, api_key: str) -> str | None:
             params["username"] = linkedin
         if email:
             params["email"] = email
-        resp = requests.get(DATAGMA_SEARCH_URL, params=params, timeout=30)
+        resp = _billed_get(DATAGMA_SEARCH_URL, params=params)
     else:
         full_name = f"{lead.get('first_name') or ''} {lead.get('last_name') or ''}".strip()
         if not (full_name and lead.get("company")):
             return None
-        resp = requests.get(DATAGMA_FULL_URL, params={
+        resp = _billed_get(DATAGMA_FULL_URL, params={
             "apiId": api_key, "fullName": full_name, "data": lead["company"],
             "phoneFull": "true",
-        }, timeout=30)
-    resp.raise_for_status()
+        })
     return _walk_for_phone(resp.json())
 
 
@@ -64,6 +76,7 @@ def _prospeo_lookup(lead: dict, api_key: str) -> str | None:
     resp = requests.post(PROSPEO_ENRICH_URL, json=body, timeout=30,
                          headers={"X-KEY": api_key, "Content-Type": "application/json"})
     resp.raise_for_status()
+    _record_lookup()
     return _walk_for_phone(resp.json())
 
 
@@ -89,15 +102,14 @@ def _find_phone(lead: dict, lookup, api_key: str | None) -> dict:
         return {**lead, "phone_status": "found", "phone_source": lead.get("phone_source") or "web_search"}
     if not lookup:
         return {**lead, "phone": None, "phone_status": "not_found", "phone_source": None}
-    provider = (os.getenv("PHONE_PROVIDER") or "").strip().lower()
     try:
         phone = lookup(lead, api_key)
-        usage.record_api_call(provider, "phone_lookup")
     except requests.RequestException:
         return {**lead, "phone": None, "phone_status": "error", "phone_source": None}
     if not phone:
         return {**lead, "phone": None, "phone_status": "not_found", "phone_source": None}
-    return {**lead, "phone": phone, "phone_status": "found", "phone_source": provider}
+    return {**lead, "phone": phone, "phone_status": "found",
+            "phone_source": (os.getenv("PHONE_PROVIDER") or "").strip().lower()}
 
 
 def phone_node(state: AgentState) -> dict:

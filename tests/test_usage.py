@@ -135,6 +135,21 @@ def test_ledger_aggregates_by_day_kind_and_model(conn):
     assert totals_after["requests"] == 2
 
 
+def test_claude_estimate_ignores_other_providers(conn, monkeypatch):
+    monkeypatch.setattr(usage, "hunter_account", lambda key: {"configured": False})
+    now = datetime.now(timezone.utc).isoformat()
+    record_usage_event(conn, {"ts": now, "provider": "anthropic", "kind": "llm",
+                              "model": "claude-sonnet-4-5", "cost_usd": 0.2})
+    record_usage_event(conn, {"ts": now, "provider": "hunter", "kind": "verification"})
+    record_usage_event(conn, {"ts": now, "provider": "datagma", "kind": "phone_lookup"})
+
+    estimated = usage.summary(conn, {}, None)["anthropic"]["estimated"]
+
+    assert estimated["month"]["requests"] == 1
+    assert [m["model"] for m in estimated["by_model"]] == ["claude-sonnet-4-5"]
+    assert {k["kind"] for k in estimated["by_kind"]} == {"llm", "verification", "phone_lookup"}
+
+
 def test_summary_prefers_billed_spend_when_an_admin_key_works(conn, monkeypatch):
     monkeypatch.setattr(usage, "hunter_account", lambda key: {"configured": False})
     monkeypatch.setattr(usage, "anthropic_cost",
