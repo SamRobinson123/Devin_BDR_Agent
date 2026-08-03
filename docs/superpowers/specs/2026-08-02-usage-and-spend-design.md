@@ -33,7 +33,9 @@ confirmed it.
 
 The same ledger also counts non-LLM calls — `nodes/enrich.py` records one
 `hunter/verification` per verifier call, `nodes/phone.py` one `phone_lookup` per
-provider call — which gives the "Calls this month" breakdown. Ledger writes are
+provider call, both only once the provider has actually answered — which gives the
+"Calls this month" breakdown. The Claude card aggregates `provider = 'anthropic'`
+rows only, so those events cannot inflate its call count. Ledger writes are
 best-effort: a failure there must never break a run.
 
 ## Storage
