@@ -4,6 +4,8 @@ from email.message import EmailMessage
 
 import requests
 
+import settings_store
+
 SETTINGS_KEY = "notifications"
 
 DEFAULT_SETTINGS = {
@@ -24,26 +26,15 @@ SECRET_FIELDS = ("slack_webhook_url", "smtp_password")
 
 
 def merge_defaults(stored: dict) -> dict:
-    return {**DEFAULT_SETTINGS, **(stored or {})}
+    return settings_store.merge_defaults(DEFAULT_SETTINGS, stored)
 
 
 def redact(settings: dict) -> dict:
-    """Settings safe to return to the UI: secrets become a set/unset flag."""
-    safe = {k: v for k, v in settings.items() if k not in SECRET_FIELDS}
-    for field in SECRET_FIELDS:
-        safe[f"{field}_set"] = bool(settings.get(field))
-    return safe
+    return settings_store.redact(settings, SECRET_FIELDS)
 
 
 def apply_update(stored: dict, update: dict) -> dict:
-    """Merge a UI update, keeping an existing secret when the field is left blank."""
-    merged = merge_defaults(stored)
-    for key, value in update.items():
-        if key in SECRET_FIELDS and not value:
-            continue
-        if key in DEFAULT_SETTINGS:
-            merged[key] = value
-    return merged
+    return settings_store.apply_update(DEFAULT_SETTINGS, SECRET_FIELDS, stored, update)
 
 
 def _scrub(message: str, secret: str) -> str:

@@ -2,6 +2,7 @@ import os
 import re
 import time
 import requests
+import usage
 from state import AgentState
 
 DATAGMA_SEARCH_URL = "https://gateway.datagma.net/api/ingress/v1/search"
@@ -11,6 +12,19 @@ PROSPEO_ENRICH_URL = "https://api.prospeo.io/enrich-person"
 _PHONE_KEYS = ("mobile", "phone", "phone_number", "phoneNumber", "number",
                "mobile_number", "mobileNumber", "raw_number", "international")
 _E164 = re.compile(r"^\+?[0-9][0-9\s().-]{6,20}$")
+
+
+def _record_lookup() -> None:
+    usage.record_api_call((os.getenv("PHONE_PROVIDER") or "").strip().lower(),
+                         "phone_lookup")
+
+
+def _billed_get(url: str, **kwargs):
+    """Only a request the provider actually answered counts against the plan."""
+    resp = requests.get(url, timeout=30, **kwargs)
+    resp.raise_for_status()
+    _record_lookup()
+    return resp
 
 
 def _walk_for_phone(payload) -> str | None:
@@ -39,16 +53,15 @@ def _datagma_lookup(lead: dict, api_key: str) -> str | None:
             params["username"] = linkedin
         if email:
             params["email"] = email
-        resp = requests.get(DATAGMA_SEARCH_URL, params=params, timeout=30)
+        resp = _billed_get(DATAGMA_SEARCH_URL, params=params)
     else:
         full_name = f"{lead.get('first_name') or ''} {lead.get('last_name') or ''}".strip()
         if not (full_name and lead.get("company")):
             return None
-        resp = requests.get(DATAGMA_FULL_URL, params={
+        resp = _billed_get(DATAGMA_FULL_URL, params={
             "apiId": api_key, "fullName": full_name, "data": lead["company"],
             "phoneFull": "true",
-        }, timeout=30)
-    resp.raise_for_status()
+        })
     return _walk_for_phone(resp.json())
 
 
@@ -71,6 +84,7 @@ def _prospeo_lookup(lead: dict, api_key: str) -> str | None:
         resp = requests.post(PROSPEO_ENRICH_URL, json=body, timeout=30,
                              headers={"X-KEY": api_key, "Content-Type": "application/json"})
         resp.raise_for_status()
+        _record_lookup()
         result = resp.json()
         mobile = result.get("person", {}).get("mobile", {})
         if mobile.get("revealed") and mobile.get("mobile"):

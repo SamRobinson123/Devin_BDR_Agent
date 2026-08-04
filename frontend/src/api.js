@@ -64,6 +64,25 @@ export async function testNotification(channel) {
   return resp.json()
 }
 
+export async function getUsage() {
+  const resp = await fetch(`${BASE_URL}/usage`)
+  return resp.json()
+}
+
+export async function getUsageSettings() {
+  const resp = await fetch(`${BASE_URL}/settings/usage`)
+  return resp.json()
+}
+
+export async function saveUsageSettings(settings) {
+  const resp = await fetch(`${BASE_URL}/settings/usage`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  })
+  return resp.json()
+}
+
 export async function enrichLeads(leadIds) {
   const resp = await fetch(`${BASE_URL}/leads/enrich`, {
     method: 'POST',

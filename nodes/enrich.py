@@ -1,5 +1,6 @@
 import os
 import requests
+import usage
 from state import AgentState
 
 VERIFIER_URL = "https://api.hunter.io/v2/email-verifier"
@@ -32,6 +33,7 @@ def _verify_email(email: str) -> dict:
     params = {"email": email, "api_key": os.getenv("HUNTER_API_KEY")}
     resp = requests.get(VERIFIER_URL, params=params, timeout=20)
     resp.raise_for_status()
+    usage.record_api_call("hunter", "verification")
     return (resp.json().get("data") or {})
 
 
