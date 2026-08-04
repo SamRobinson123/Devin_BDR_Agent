@@ -30,6 +30,43 @@ db.upsert_lead(c, {'first_name':'Ada','last_name':'Lovelace','company':'X','doma
 ```
 A lead only shows the select checkbox when `status == 'pending'`.
 
+## Faking Hunter / Anthropic-billing responses (Usage & Spend tab)
+`usage.py` holds the outbound URLs as module constants, so you can redirect them without touching
+repo code: run a small fake-provider FastAPI app on another port, then serve the real app through a
+throwaway wrapper that rebinds the constants *before* importing `server`. Keep both files untracked.
+```python
+# stub_server.py — run with: uvicorn stub_server:app --port 8000
+import usage
+usage.HUNTER_ACCOUNT_URL = "http://localhost:8002/v2/account"
+usage.ANTHROPIC_COST_URL = "http://localhost:8002/v1/organizations/cost_report"
+import server
+app = server.app
+```
+Why this beats monkeypatching `requests`: the real header/401/pagination/cents→USD code still runs.
+- Leave `HUNTER_UPGRADE_URL`, `ANTHROPIC_USAGE_URL`, `ANTHROPIC_ADMIN_KEYS_URL` unpatched so the UI's
+  outbound link targets can still be verified against the real constants.
+- Tune the fake Hunter quotas to hit every meter tone in one screenshot — remaining ≤5% is red,
+  ≤20% amber, else default (e.g. 970/1000, 850/1000, 200/1000).
+- Anthropic `cost_report` amounts are **cents**; have the fake return a distinctive total so the
+  conversion is falsifiable (2185c must render as `$21.85`).
+- Prove labelling honesty by saving a key the fake rejects first: the pill must stay
+  "Estimated locally". A stub that 401s anything not starting with `sk-ant-admin` makes this easy.
+- Hunter states are driven by the backend env, so each needs a restart: `HUNTER_API_KEY=badkey`
+  (401 path) and removing the var from both the environment and `.env` (unconfigured path).
+- Admin-key/budget writes land in the `settings` table, not a file. Reset a run's state with
+  `db.set_setting(conn, usage.SETTINGS_KEY, {'monthly_budget_usd': 0.0, 'anthropic_admin_key': ''})` —
+  a blank secret on PUT is ignored, so you cannot clear the key through the UI.
+
+## Seeding the usage ledger
+`usage_events` in `leads.db` backs the estimated Claude figures. Price rows through the real
+`usage.token_cost(...)` so the UI total is reproducible. Seed a mix of providers: the Claude estimate
+(`estimated.month`/`daily`/`by_model`) is scoped to `provider='anthropic'`, while the "Calls this
+month" table is intentionally unfiltered — seeding only Anthropic rows would make a provider-filter
+regression invisible. Verify `/usage` in the shell before the browser: "Priced from N recorded calls"
+must equal `llm + web_search` only, and `by_model` must contain no `null`/`unknown` row.
+Historically the pytest suite wrote into the repo's real `leads.db`; if row counts drift after a test
+run, check that `tests/conftest.py` still redirects `LEADS_DB_PATH` and resets `usage._ledger`.
+
 ## Notification settings
 Stored as one JSON blob in the new `settings` table (`select value from settings`). Secrets
 (`slack_webhook_url`, `smtp_password`) are redacted by `GET /settings/notifications` into
