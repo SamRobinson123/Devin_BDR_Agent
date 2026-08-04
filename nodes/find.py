@@ -3,11 +3,13 @@ from constants import llm as default_llm
 from nodes.parsing import parse_json_array
 from state import AgentState
 
-WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 5}
+WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 10}
 
 FIND_SYSTEM = SystemMessage(content=(
     "You are a BDR research assistant. Use web search to find real people matching "
-    "the user's criteria. Return ONLY a JSON array; each item must have keys "
+    "the user's criteria. Once you identify a person, check their company's "
+    "contact/team/about page for a direct phone number or email before giving up. "
+    "Return ONLY a JSON array; each item must have keys "
     "first_name, last_name, company, domain, and — only if visible in your search "
     "results — email and phone. Omit email/phone entirely if not directly found; "
     "never guess them. No prose, no markdown fences."

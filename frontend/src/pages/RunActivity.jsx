@@ -39,7 +39,8 @@ function count(items, singular) {
 }
 
 /** Turn a raw LangGraph node update into a one-line summary plus result rows. */
-function summarize(node, data = {}) {
+function summarize(node, data) {
+  data = data || {}
   const leads = data.leads || data.enriched || []
   switch (node) {
     case 'intent_node':

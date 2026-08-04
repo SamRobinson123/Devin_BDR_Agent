@@ -1,12 +1,13 @@
 import os
 import re
+import time
 import requests
 import usage
 from state import AgentState
 
 DATAGMA_SEARCH_URL = "https://gateway.datagma.net/api/ingress/v1/search"
 DATAGMA_FULL_URL = "https://gateway.datagma.net/api/ingress/v2/full"
-PROSPEO_ENRICH_URL = "https://api.prospeo.io/enrich"
+PROSPEO_ENRICH_URL = "https://api.prospeo.io/enrich-person"
 
 _PHONE_KEYS = ("mobile", "phone", "phone_number", "phoneNumber", "number",
                "mobile_number", "mobileNumber", "raw_number", "international")
@@ -64,20 +65,36 @@ def _datagma_lookup(lead: dict, api_key: str) -> str | None:
     return _walk_for_phone(resp.json())
 
 
+_PROSPEO_RETRIES = 2
+_PROSPEO_RETRY_DELAY_SECONDS = 3
+
+
 def _prospeo_lookup(lead: dict, api_key: str) -> str | None:
-    body = {"reveal_phone_number": True}
+    payload_data = {}
     if lead.get("linkedin_url"):
-        body["linkedin_url"] = lead["linkedin_url"]
+        payload_data["linkedin_url"] = lead["linkedin_url"]
     elif lead.get("first_name") and lead.get("last_name") and lead.get("domain"):
-        body.update({"first_name": lead["first_name"], "last_name": lead["last_name"],
-                     "company_domain": lead["domain"]})
+        payload_data.update({"first_name": lead["first_name"], "last_name": lead["last_name"],
+                             "company_website": lead["domain"]})
     else:
         return None
-    resp = requests.post(PROSPEO_ENRICH_URL, json=body, timeout=30,
-                         headers={"X-KEY": api_key, "Content-Type": "application/json"})
-    resp.raise_for_status()
-    _record_lookup()
-    return _walk_for_phone(resp.json())
+    body = {"enrich_mobile": True, "data": payload_data}
+
+    for attempt in range(_PROSPEO_RETRIES + 1):
+        resp = requests.post(PROSPEO_ENRICH_URL, json=body, timeout=30,
+                             headers={"X-KEY": api_key, "Content-Type": "application/json"})
+        resp.raise_for_status()
+        _record_lookup()
+        result = resp.json()
+        mobile = result.get("person", {}).get("mobile", {})
+        if mobile.get("revealed") and mobile.get("mobile"):
+            return mobile["mobile"]
+        phone = _walk_for_phone(result)
+        if phone:
+            return phone
+        if attempt < _PROSPEO_RETRIES:
+            time.sleep(_PROSPEO_RETRY_DELAY_SECONDS)
+    return None
 
 
 PROVIDERS = {
