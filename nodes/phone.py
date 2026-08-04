@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import requests
 from state import AgentState
 
@@ -51,24 +52,35 @@ def _datagma_lookup(lead: dict, api_key: str) -> str | None:
     return _walk_for_phone(resp.json())
 
 
+_PROSPEO_RETRIES = 2
+_PROSPEO_RETRY_DELAY_SECONDS = 3
+
+
 def _prospeo_lookup(lead: dict, api_key: str) -> str | None:
-    data = {}
+    payload_data = {}
     if lead.get("linkedin_url"):
-        data["linkedin_url"] = lead["linkedin_url"]
+        payload_data["linkedin_url"] = lead["linkedin_url"]
     elif lead.get("first_name") and lead.get("last_name") and lead.get("domain"):
-        data.update({"first_name": lead["first_name"], "last_name": lead["last_name"],
-                     "company_website": lead["domain"]})
+        payload_data.update({"first_name": lead["first_name"], "last_name": lead["last_name"],
+                             "company_website": lead["domain"]})
     else:
         return None
-    body = {"enrich_mobile": True, "data": data}
-    resp = requests.post(PROSPEO_ENRICH_URL, json=body, timeout=30,
-                         headers={"X-KEY": api_key, "Content-Type": "application/json"})
-    resp.raise_for_status()
-    data = resp.json()
-    mobile = data.get("person", {}).get("mobile", {})
-    if mobile.get("revealed") and mobile.get("mobile"):
-        return mobile["mobile"]
-    return _walk_for_phone(data)
+    body = {"enrich_mobile": True, "data": payload_data}
+
+    for attempt in range(_PROSPEO_RETRIES + 1):
+        resp = requests.post(PROSPEO_ENRICH_URL, json=body, timeout=30,
+                             headers={"X-KEY": api_key, "Content-Type": "application/json"})
+        resp.raise_for_status()
+        result = resp.json()
+        mobile = result.get("person", {}).get("mobile", {})
+        if mobile.get("revealed") and mobile.get("mobile"):
+            return mobile["mobile"]
+        phone = _walk_for_phone(result)
+        if phone:
+            return phone
+        if attempt < _PROSPEO_RETRIES:
+            time.sleep(_PROSPEO_RETRY_DELAY_SECONDS)
+    return None
 
 
 PROVIDERS = {
