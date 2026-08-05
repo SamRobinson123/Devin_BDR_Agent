@@ -56,6 +56,21 @@ describe('Chat page', () => {
     )
   })
 
+  it('surfaces an error message when the backend is unreachable', async () => {
+    api.sendChat.mockRejectedValue(
+      new Error("Can't reach the agent backend at http://localhost:8000. Is the server running?")
+    )
+
+    render(<Chat />)
+    ask()
+
+    await waitFor(() =>
+      expect(screen.getByText(/Can't reach the agent backend/i)).toBeInTheDocument()
+    )
+    // The composer must stay usable so the user can retry.
+    expect(screen.getByPlaceholderText(/message/i)).toBeInTheDocument()
+  })
+
   it('renders the search results from node events in the chat', async () => {
     api.sendChat.mockImplementation(async (message, threadId, onNodeEvent) => {
       onNodeEvent({

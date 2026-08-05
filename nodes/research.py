@@ -1,6 +1,7 @@
 from langchain_core.messages import HumanMessage, SystemMessage
 from constants import llm as default_llm
 from nodes.parsing import parse_json_object
+from nodes.concurrency import parallel_map
 from state import AgentState
 
 WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 2}
@@ -36,11 +37,15 @@ def research_node(state: AgentState, llm=None) -> dict:
     model = llm or default_llm
     leads = state.get("leads", [])
 
-    briefs: dict[str, dict] = {}
+    domains: dict[str, str] = {}
     for lead in leads:
         domain = (lead.get("domain") or "").strip().lower()
-        if domain and domain not in briefs:
-            briefs[domain] = _research_domain(domain, lead.get("company"), model)
+        if domain and domain not in domains:
+            domains[domain] = lead.get("company")
+
+    items = list(domains.items())
+    results = parallel_map(lambda item: _research_domain(item[0], item[1], model), items)
+    briefs: dict[str, dict] = {domain: brief for (domain, _), brief in zip(items, results)}
 
     researched = []
     for lead in leads:

@@ -2,6 +2,7 @@ import logging
 import os
 import requests
 import usage
+from nodes.concurrency import parallel_map
 from state import AgentState
 
 logger = logging.getLogger(__name__)
@@ -79,5 +80,5 @@ def _find_one(lead: dict) -> dict:
 
 def enrich_node(state: AgentState) -> dict:
     """Validate/find emails for every lead in state['leads'] via Hunter."""
-    enriched = [_find_one(lead) for lead in state.get("leads", [])]
+    enriched = parallel_map(_find_one, state.get("leads", []))
     return {"enriched": enriched}

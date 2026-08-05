@@ -131,6 +131,14 @@ export default function Chat() {
       if (!result.paused) {
         setPath((prev) => prev.filter((p) => p.status === 'completed'))
       }
+    } catch (err) {
+      setSteps([])
+      setPath([])
+      setPending(null)
+      setMessages((m) => [...m, {
+        role: 'agent', error: true,
+        text: err?.message || 'Something went wrong reaching the agent.',
+      }])
     } finally {
       setSending(false)
     }
@@ -180,7 +188,7 @@ export default function Chat() {
               {messages.map((m, i) => (
                 <div key={i} className={`chat-row ${m.role}`}>
                   {m.role === 'agent' && <div className="chat-avatar" aria-hidden="true">A</div>}
-                  <div className="chat-bubble">
+                  <div className={`chat-bubble${m.error ? ' error' : ''}`}>
                     {m.steps?.length > 0 && <RunActivity steps={m.steps} running={false} />}
                     {m.text}
                     {m.leads?.length > 0 && (
