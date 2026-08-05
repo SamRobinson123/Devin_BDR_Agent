@@ -1,14 +1,17 @@
 from langchain_core.messages import HumanMessage, SystemMessage
-from constants import llm as default_llm
+from constants import PROFILE_LEAD_LIMIT, PROFILE_SEARCH_MAX_USES, llm as default_llm
 from nodes.parsing import parse_json_object
 from state import AgentState
 
-WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 2}
+WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search",
+                   "max_uses": PROFILE_SEARCH_MAX_USES}
 
 PROFILE_SYSTEM = SystemMessage(content=(
     "You research individual people for a BDR team. Use web search to find this "
     "person's public professional footprint — their LinkedIn profile, conference "
     "talks, podcast appearances, blog posts, press quotes, job change announcements. "
+    "Run several distinct searches (name + company, name + LinkedIn, name + the "
+    "topics they work on) rather than stopping at the first result page. "
     "Return ONLY a JSON object with keys linkedin_url, title, seniority, tenure, "
     "prior_companies, person_summary, talking_points, profile_sources.\n"
     "- seniority: one of c_level, vp, director, manager, ic, unknown\n"
@@ -43,17 +46,18 @@ def _has_name(lead: dict) -> bool:
     return bool((lead.get("first_name") or "").strip() and (lead.get("last_name") or "").strip())
 
 
-def profile_node(state: AgentState, llm=None, limit: int = 10) -> dict:
+def profile_node(state: AgentState, llm=None, limit: int | None = None) -> dict:
     """Attach a person-level profile (LinkedIn, seniority, talking points) to each lead.
 
-    One search-enabled call per lead, so only the first `limit` leads are profiled;
-    dedupe_node and score_node keep that list short in practice.
+    One search-enabled call per lead, so only the first `limit` leads are profiled
+    (default `PROFILE_LEAD_LIMIT`); dedupe_node and score_node keep that list short
+    in practice.
     """
     model = llm or default_llm
     leads = state.get("leads", [])
 
     profiled = []
-    budget = limit
+    budget = PROFILE_LEAD_LIMIT if limit is None else limit
     for lead in leads:
         if budget <= 0 or not _has_name(lead):
             profiled.append(lead)

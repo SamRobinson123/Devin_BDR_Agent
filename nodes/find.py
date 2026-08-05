@@ -1,13 +1,17 @@
 from langchain_core.messages import SystemMessage
-from constants import llm as default_llm
+from constants import FIND_SEARCH_MAX_USES, llm as default_llm
 from nodes.parsing import parse_json_array
 from state import AgentState
 
-WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 5}
+WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search",
+                   "max_uses": FIND_SEARCH_MAX_USES}
 
 FIND_SYSTEM = SystemMessage(content=(
     "You are a BDR research assistant. Use web search to find real people matching "
-    "the user's criteria. Once you identify a person, check their company's "
+    "the user's criteria. Search broadly: vary your queries (role synonyms, "
+    "job-title pages, news, directories) and keep searching until you have "
+    "exhausted your search budget or run out of new candidates. "
+    "Once you identify a person, check their company's "
     "contact/team/about page for a direct phone number or email before giving up. "
     "If the user named a specific person and you cannot confirm that exact person "
     "exists at that company, return an empty JSON array — do NOT substitute other "
