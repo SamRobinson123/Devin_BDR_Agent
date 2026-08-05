@@ -113,7 +113,7 @@ def test_chat_find_intent_streams_node_events_and_pauses(tmp_path, monkeypatch):
         '[{"first_name": "Jane", "last_name": "Doe", "company": "Acme", "domain": "acme.com"}]'
     ))
 
-    with patch("graph.llm", fake_llm):
+    with patch("graph.llm", fake_llm), patch("graph.search_llm", fake_llm):
         import server
         importlib.reload(server)
 
@@ -163,7 +163,8 @@ def test_chat_enrich_after_gate_streams_and_updates_db(tmp_path, monkeypatch):
         '[{"first_name": "Jane", "last_name": "Doe", "company": "Acme", "domain": "acme.com"}]'
     ))
 
-    with patch("graph.llm", fake_llm), patch("nodes.enrich.requests.get") as mock_get:
+    with patch("graph.llm", fake_llm), patch("graph.search_llm", fake_llm), \
+            patch("nodes.enrich.requests.get") as mock_get:
         mock_get.return_value = _verifier_resp("deliverable", "jane.doe@acme.com")
         import server
         importlib.reload(server)

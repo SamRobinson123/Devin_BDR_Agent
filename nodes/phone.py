@@ -1,9 +1,12 @@
+import logging
 import os
 import re
 import time
 import requests
 import usage
 from state import AgentState
+
+logger = logging.getLogger(__name__)
 
 DATAGMA_SEARCH_URL = "https://gateway.datagma.net/api/ingress/v1/search"
 DATAGMA_FULL_URL = "https://gateway.datagma.net/api/ingress/v2/full"
@@ -13,16 +16,43 @@ _PHONE_KEYS = ("mobile", "phone", "phone_number", "phoneNumber", "number",
                "mobile_number", "mobileNumber", "raw_number", "international")
 _E164 = re.compile(r"^\+?[0-9][0-9\s().-]{6,20}$")
 
+# Prospeo's free/low tiers rate-limit to ~1 req/s and answer a burst with 429
+# ("Rate limit exceeded", and occasionally a misleading 400 INVALID_API_KEY),
+# so a batch of leads would otherwise fail every lookup after the first.
+_RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+_MAX_RETRIES = 4
+_BACKOFF_SECONDS = 2
+
 
 def _record_lookup() -> None:
     usage.record_api_call((os.getenv("PHONE_PROVIDER") or "").strip().lower(),
                          "phone_lookup")
 
 
+def _retry_delay(resp, attempt: int) -> float:
+    header = getattr(resp, "headers", {}).get("Retry-After")
+    try:
+        return float(header)
+    except (TypeError, ValueError):
+        return _BACKOFF_SECONDS * (attempt + 1)
+
+
+def _send(method, url: str, **kwargs):
+    """Call the provider, backing off and retrying on rate limits / transient 5xx."""
+    resp = None
+    for attempt in range(_MAX_RETRIES + 1):
+        resp = method(url, timeout=30, **kwargs)
+        if resp.status_code in _RETRY_STATUSES and attempt < _MAX_RETRIES:
+            time.sleep(_retry_delay(resp, attempt))
+            continue
+        break
+    resp.raise_for_status()
+    return resp
+
+
 def _billed_get(url: str, **kwargs):
     """Only a request the provider actually answered counts against the plan."""
-    resp = requests.get(url, timeout=30, **kwargs)
-    resp.raise_for_status()
+    resp = _send(requests.get, url, **kwargs)
     _record_lookup()
     return resp
 
@@ -81,9 +111,8 @@ def _prospeo_call(payload_data: dict, api_key: str) -> tuple[str | None, str | N
     """POST one strategy to Prospeo, retrying transient misses before giving up on it."""
     body = {"enrich_mobile": True, "data": payload_data}
     for attempt in range(_PROSPEO_RETRIES + 1):
-        resp = requests.post(PROSPEO_ENRICH_URL, json=body, timeout=30,
-                             headers={"X-KEY": api_key, "Content-Type": "application/json"})
-        resp.raise_for_status()
+        resp = _send(requests.post, PROSPEO_ENRICH_URL, json=body,
+                     headers={"X-KEY": api_key, "Content-Type": "application/json"})
         _record_lookup()
         result = resp.json()
         mobile = result.get("person", {}).get("mobile", {})
@@ -146,7 +175,14 @@ def _find_phone(lead: dict, lookup, api_key: str | None) -> dict:
                 "phone_confidence": None}
     try:
         phone, confidence = lookup(lead, api_key)
-    except requests.RequestException:
+    except requests.RequestException as exc:
+        status_code = getattr(exc.response, "status_code", None)
+        body = getattr(exc.response, "text", None)
+        logger.error(
+            "Phone lookup failed for %s %s via %s (status=%s): %s",
+            lead.get("first_name"), lead.get("last_name"),
+            (os.getenv("PHONE_PROVIDER") or "").strip().lower(), status_code, body or exc,
+        )
         return {**lead, "phone": None, "phone_status": "error", "phone_source": None,
                 "phone_confidence": None}
     if not phone:
