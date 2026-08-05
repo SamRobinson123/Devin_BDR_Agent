@@ -45,8 +45,11 @@ def _walk_for_phone(payload) -> str | None:
     return None
 
 
-def _datagma_lookup(lead: dict, api_key: str) -> str | None:
+def _datagma_lookup(lead: dict, api_key: str) -> tuple[str | None, str | None]:
+    """Try every identifier we have, strongest first, so one bad match doesn't end the search."""
     linkedin, email = lead.get("linkedin_url"), lead.get("email")
+    full_name = f"{lead.get('first_name') or ''} {lead.get('last_name') or ''}".strip()
+
     if linkedin or email:
         params = {"apiId": api_key, "minimumMatch": 1}
         if linkedin:
@@ -54,32 +57,29 @@ def _datagma_lookup(lead: dict, api_key: str) -> str | None:
         if email:
             params["email"] = email
         resp = _billed_get(DATAGMA_SEARCH_URL, params=params)
-    else:
-        full_name = f"{lead.get('first_name') or ''} {lead.get('last_name') or ''}".strip()
-        if not (full_name and lead.get("company")):
-            return None
+        phone = _walk_for_phone(resp.json())
+        if phone:
+            return phone, "high"
+
+    if full_name and lead.get("company"):
         resp = _billed_get(DATAGMA_FULL_URL, params={
             "apiId": api_key, "fullName": full_name, "data": lead["company"],
             "phoneFull": "true",
         })
-    return _walk_for_phone(resp.json())
+        phone = _walk_for_phone(resp.json())
+        if phone:
+            return phone, "medium"
+
+    return None, None
 
 
 _PROSPEO_RETRIES = 2
 _PROSPEO_RETRY_DELAY_SECONDS = 3
 
 
-def _prospeo_lookup(lead: dict, api_key: str) -> str | None:
-    payload_data = {}
-    if lead.get("linkedin_url"):
-        payload_data["linkedin_url"] = lead["linkedin_url"]
-    elif lead.get("first_name") and lead.get("last_name") and lead.get("domain"):
-        payload_data.update({"first_name": lead["first_name"], "last_name": lead["last_name"],
-                             "company_website": lead["domain"]})
-    else:
-        return None
+def _prospeo_call(payload_data: dict, api_key: str) -> tuple[str | None, str | None]:
+    """POST one strategy to Prospeo, retrying transient misses before giving up on it."""
     body = {"enrich_mobile": True, "data": payload_data}
-
     for attempt in range(_PROSPEO_RETRIES + 1):
         resp = requests.post(PROSPEO_ENRICH_URL, json=body, timeout=30,
                              headers={"X-KEY": api_key, "Content-Type": "application/json"})
@@ -88,13 +88,33 @@ def _prospeo_lookup(lead: dict, api_key: str) -> str | None:
         result = resp.json()
         mobile = result.get("person", {}).get("mobile", {})
         if mobile.get("revealed") and mobile.get("mobile"):
-            return mobile["mobile"]
+            return mobile["mobile"], "high"
         phone = _walk_for_phone(result)
         if phone:
-            return phone
+            return phone, "medium"
         if attempt < _PROSPEO_RETRIES:
             time.sleep(_PROSPEO_RETRY_DELAY_SECONDS)
-    return None
+    return None, None
+
+
+def _prospeo_lookup(lead: dict, api_key: str) -> tuple[str | None, str | None]:
+    """Try every identifier we have, strongest first, before reporting not_found.
+
+    linkedin_url has the best hit rate, but if it comes up empty (stale profile,
+    no match) fall back to the name+company-domain strategy instead of quitting.
+    """
+    strategies = []
+    if lead.get("linkedin_url"):
+        strategies.append({"linkedin_url": lead["linkedin_url"]})
+    if lead.get("first_name") and lead.get("last_name") and lead.get("domain"):
+        strategies.append({"first_name": lead["first_name"], "last_name": lead["last_name"],
+                           "company_website": lead["domain"]})
+
+    for payload_data in strategies:
+        phone, confidence = _prospeo_call(payload_data, api_key)
+        if phone:
+            return phone, confidence
+    return None, None
 
 
 PROVIDERS = {
@@ -115,18 +135,26 @@ def _active_provider() -> tuple:
 
 
 def _find_phone(lead: dict, lookup, api_key: str | None) -> dict:
-    if lead.get("phone"):
-        return {**lead, "phone_status": "found", "phone_source": lead.get("phone_source") or "web_search"}
+    existing = (lead.get("phone") or "").strip()
+    if existing and _E164.match(existing):
+        return {**lead, "phone_status": "found", "phone_source": lead.get("phone_source") or "web_search",
+                "phone_confidence": lead.get("phone_confidence") or "low"}
+    if existing:
+        lead = {**lead, "phone": None}
     if not lookup:
-        return {**lead, "phone": None, "phone_status": "not_found", "phone_source": None}
+        return {**lead, "phone": None, "phone_status": "not_found", "phone_source": None,
+                "phone_confidence": None}
     try:
-        phone = lookup(lead, api_key)
+        phone, confidence = lookup(lead, api_key)
     except requests.RequestException:
-        return {**lead, "phone": None, "phone_status": "error", "phone_source": None}
+        return {**lead, "phone": None, "phone_status": "error", "phone_source": None,
+                "phone_confidence": None}
     if not phone:
-        return {**lead, "phone": None, "phone_status": "not_found", "phone_source": None}
+        return {**lead, "phone": None, "phone_status": "not_found", "phone_source": None,
+                "phone_confidence": None}
     return {**lead, "phone": phone, "phone_status": "found",
-            "phone_source": (os.getenv("PHONE_PROVIDER") or "").strip().lower()}
+            "phone_source": (os.getenv("PHONE_PROVIDER") or "").strip().lower(),
+            "phone_confidence": confidence}
 
 
 def phone_node(state: AgentState) -> dict:

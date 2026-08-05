@@ -26,6 +26,8 @@ function DetailRow({ lead, colSpan }) {
             {lead.tenure && <><dt>Tenure</dt><dd>{lead.tenure}</dd></>}
             {priors.length > 0 && <><dt>Previously</dt><dd>{priors.join(', ')}</dd></>}
             {lead.phone_source && <><dt>Phone source</dt><dd>{lead.phone_source}</dd></>}
+            {lead.phone_confidence && <><dt>Phone confidence</dt><dd>{lead.phone_confidence}</dd></>}
+            {lead.email_confidence != null && <><dt>Email confidence</dt><dd>{lead.email_confidence}/100</dd></>}
             {lead.research_summary && <><dt>Company</dt><dd>{lead.research_summary}</dd></>}
             {lead.fit_reason && <><dt>Why they fit</dt><dd>{lead.fit_reason}</dd></>}
           </dl>

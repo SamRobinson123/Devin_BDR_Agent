@@ -6,7 +6,7 @@ from langchain_core.messages import HumanMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.sqlite import SqliteSaver
 
-from constants import llm
+from constants import llm, search_llm
 from routing import route_by_intent
 from state import AgentState, Intent  # noqa: F401  (re-exported for callers)
 from nodes.intent import intent_node
@@ -28,10 +28,10 @@ def build_graph(checkpointer=None):
     g = StateGraph(AgentState)
 
     g.add_node("intent_node", lambda state: intent_node(state, llm=llm))
-    g.add_node("find_node", lambda state: find_node(state, llm=llm))
+    g.add_node("find_node", lambda state: find_node(state, llm=search_llm))
     g.add_node("dedupe_node", dedupe_node)
-    g.add_node("research_node", lambda state: research_node(state, llm=llm))
-    g.add_node("profile_node", lambda state: profile_node(state, llm=llm))
+    g.add_node("research_node", lambda state: research_node(state, llm=search_llm))
+    g.add_node("profile_node", lambda state: profile_node(state, llm=search_llm))
     g.add_node("score_node", lambda state: score_node(state, llm=llm))
     g.add_node("human_gate", human_gate)
     g.add_node("enrich_node", enrich_node)

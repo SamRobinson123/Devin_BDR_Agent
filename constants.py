@@ -8,6 +8,7 @@ from llm_usage import UsageRecorder
 load_dotenv()
 
 MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5")
+SEARCH_MODEL = os.getenv("ANTHROPIC_SEARCH_MODEL", "claude-haiku-4-5")
 
 
 def env_int(name: str, default: int, minimum: int = 1) -> int:
@@ -32,3 +33,5 @@ PROFILE_LEAD_LIMIT = env_int("PROFILE_LEAD_LIMIT", 15)
 
 llm = ChatAnthropic(model=MODEL, temperature=0, max_tokens=MAX_TOKENS,
                     callbacks=[UsageRecorder()])
+search_llm = ChatAnthropic(model=SEARCH_MODEL, temperature=0, max_tokens=MAX_TOKENS,
+                           callbacks=[UsageRecorder()])
