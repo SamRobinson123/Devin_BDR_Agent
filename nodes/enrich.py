@@ -1,7 +1,10 @@
+import logging
 import os
 import requests
 import usage
 from state import AgentState
+
+logger = logging.getLogger(__name__)
 
 VERIFIER_URL = "https://api.hunter.io/v2/email-verifier"
 
@@ -38,11 +41,17 @@ def _verify_email(email: str) -> dict:
 
 
 def _find_one(lead: dict) -> dict:
-    """Verify a lead's known email directly, or guess-and-verify if none is known."""
-    known_email = lead.get("email")
-    candidates = [known_email] if known_email else _guess_emails(lead)
+    """Verify a lead's known email through Hunter, then fall back to guessed patterns.
+
+    A "known" email may just be an unverified guess scraped off a search result
+    (e.g. ZoomInfo/RocketReach), so it's checked first but not trusted on its own —
+    the pattern guesses still run if it isn't confirmed deliverable/risky.
+    """
+    known_email = (lead.get("email") or "").strip().lower()
+    guesses = _guess_emails(lead)
+    candidates = [known_email] + [g for g in guesses if g != known_email] if known_email else guesses
     if not candidates:
-        return {**lead, "email": None, "status": "error"}
+        return {**lead, "email": None, "status": "error", "email_confidence": None}
 
     best_risky = None
     try:
@@ -50,14 +59,22 @@ def _find_one(lead: dict) -> dict:
             data = _verify_email(email)
             result = data.get("result")
             if result in _DELIVERABLE:
-                return {**lead, "email": email, "status": "verified"}
+                return {**lead, "email": email, "status": "verified",
+                        "email_confidence": data.get("score")}
             if result in _RISKY_BUT_OK and best_risky is None:
-                best_risky = email
+                best_risky = (email, data.get("score"))
         if best_risky:
-            return {**lead, "email": best_risky, "status": "verified"}
-        return {**lead, "email": None, "status": "not_found"}
-    except requests.RequestException:
-        return {**lead, "email": None, "status": "error"}
+            email, score = best_risky
+            return {**lead, "email": email, "status": "verified", "email_confidence": score}
+        return {**lead, "email": None, "status": "not_found", "email_confidence": None}
+    except requests.RequestException as exc:
+        status_code = getattr(exc.response, "status_code", None)
+        body = getattr(exc.response, "text", None)
+        logger.error(
+            "Hunter verification failed for lead %s %s (status=%s): %s",
+            lead.get("first_name"), lead.get("last_name"), status_code, body or exc,
+        )
+        return {**lead, "email": None, "status": "error", "email_confidence": None}
 
 
 def enrich_node(state: AgentState) -> dict:

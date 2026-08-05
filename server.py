@@ -116,6 +116,7 @@ def enrich_leads(req: EnrichRequest):
         update_lead_enrichment(
             db_conn, lead["id"], lead.get("email"), lead.get("status"),
             lead.get("phone"), lead.get("phone_status"),
+            lead.get("email_confidence"), lead.get("phone_confidence"),
         )
         set_phone_source(db_conn, lead["id"], lead.get("phone_source"))
     return get_leads_by_ids(db_conn, req.lead_ids)
@@ -134,6 +135,7 @@ def _save_result_to_db(values: dict | None) -> None:
         update_lead_enrichment(
             db_conn, lead_id, lead.get("email"), lead.get("status"),
             lead.get("phone"), lead.get("phone_status"),
+            lead.get("email_confidence"), lead.get("phone_confidence"),
         )
         set_phone_source(db_conn, lead_id, lead.get("phone_source"))
 

@@ -3,7 +3,7 @@ from constants import llm as default_llm
 from nodes.parsing import parse_json_object
 from state import AgentState
 
-WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 3}
+WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 2}
 
 RESEARCH_SYSTEM = SystemMessage(content=(
     "You research companies for a BDR team. Use web search on the given domain and "

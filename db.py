@@ -39,6 +39,8 @@ EXTRA_COLUMNS = {
     "fit_reason": "TEXT",
     "draft_subject": "TEXT",
     "draft_body": "TEXT",
+    "email_confidence": "INTEGER",
+    "phone_confidence": "TEXT",
 }
 
 PROFILE_FIELDS = ("company", "title", "linkedin_url", "location", "industry",
@@ -228,11 +230,13 @@ def get_leads_by_ids(conn: sqlite3.Connection, ids: list[int]) -> list[dict]:
 
 
 def update_lead_enrichment(conn: sqlite3.Connection, lead_id: int, email, status,
-                            phone, phone_status) -> None:
+                            phone, phone_status, email_confidence=None,
+                            phone_confidence=None) -> None:
     conn.execute(
         "UPDATE leads SET email = ?, status = ?, phone = ?, phone_status = ?, "
-        "updated_at = ? WHERE id = ?",
-        (email, status, phone, phone_status, _now(), lead_id),
+        "email_confidence = ?, phone_confidence = ?, updated_at = ? WHERE id = ?",
+        (email, status, phone, phone_status, email_confidence, phone_confidence,
+         _now(), lead_id),
     )
     conn.commit()
 
