@@ -1,6 +1,7 @@
 from langchain_core.messages import HumanMessage, SystemMessage
 from constants import PROFILE_LEAD_LIMIT, PROFILE_SEARCH_MAX_USES, llm as default_llm
 from nodes.parsing import parse_json_object
+from nodes.concurrency import parallel_map
 from state import AgentState
 
 WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search",
@@ -56,14 +57,22 @@ def profile_node(state: AgentState, llm=None, limit: int | None = None) -> dict:
     model = llm or default_llm
     leads = state.get("leads", [])
 
-    profiled = []
+    targets = []
     budget = PROFILE_LEAD_LIMIT if limit is None else limit
-    for lead in leads:
-        if budget <= 0 or not _has_name(lead):
+    for i, lead in enumerate(leads):
+        if budget > 0 and _has_name(lead):
+            budget -= 1
+            targets.append(i)
+
+    profiles = parallel_map(lambda i: _profile_one(leads[i], model), targets)
+    by_index = dict(zip(targets, profiles))
+
+    profiled = []
+    for i, lead in enumerate(leads):
+        profile = by_index.get(i)
+        if profile is None:
             profiled.append(lead)
             continue
-        budget -= 1
-        profile = _profile_one(lead, model)
         merged = {f: lead.get(f) or profile.get(f) for f in PROFILE_FIELDS}
         profiled.append({**lead, **merged})
 

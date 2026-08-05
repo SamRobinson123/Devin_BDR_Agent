@@ -5,11 +5,15 @@ import requests
 from nodes.phone import phone_node
 
 
-def _resp(body):
+def _resp(body, status=200):
     m = MagicMock()
-    m.status_code = 200
+    m.status_code = status
     m.json.return_value = body
-    m.raise_for_status.return_value = None
+    m.headers = {}
+    if status >= 400:
+        m.raise_for_status.side_effect = requests.HTTPError(response=m)
+    else:
+        m.raise_for_status.return_value = None
     return m
 
 
@@ -69,6 +73,39 @@ def test_provider_error_marks_error(mock_get, monkeypatch):
 
     state = {"enriched": [{"first_name": "Jane", "last_name": "Doe", "company": "Acme"}]}
     result = phone_node(state)
+    assert result["enriched"][0]["phone_status"] == "error"
+
+
+@patch("nodes.phone.time.sleep", return_value=None)
+@patch("nodes.phone.requests.get")
+def test_retries_after_rate_limit_then_succeeds(mock_get, _sleep, monkeypatch):
+    monkeypatch.setenv("PHONE_PROVIDER", "datagma")
+    monkeypatch.setenv("DATAGMA_API_KEY", "key123")
+    mock_get.side_effect = [
+        _resp({}, status=429),
+        _resp({"phones": [{"number": "+1 555 0199"}]}),
+    ]
+
+    state = {"enriched": [{"first_name": "Jane", "last_name": "Doe",
+                           "linkedin_url": "https://linkedin.com/in/janedoe"}]}
+    result = phone_node(state)
+
+    assert mock_get.call_count == 2
+    assert result["enriched"][0]["phone"] == "+1 555 0199"
+    assert result["enriched"][0]["phone_status"] == "found"
+
+
+@patch("nodes.phone.time.sleep", return_value=None)
+@patch("nodes.phone.requests.get")
+def test_persistent_rate_limit_marks_error(mock_get, _sleep, monkeypatch):
+    monkeypatch.setenv("PHONE_PROVIDER", "datagma")
+    monkeypatch.setenv("DATAGMA_API_KEY", "key123")
+    mock_get.return_value = _resp({}, status=429)
+
+    state = {"enriched": [{"first_name": "Jane", "last_name": "Doe",
+                           "linkedin_url": "https://linkedin.com/in/janedoe"}]}
+    result = phone_node(state)
+
     assert result["enriched"][0]["phone_status"] == "error"
 
 
