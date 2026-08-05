@@ -8,10 +8,19 @@ description: How to run and test the Devin-BDR-Agent app locally (FastAPI + Vite
 ## Bring the app up
 ```bash
 cd <repo>
+bash scripts/setup.sh          # fresh clone only: venv + pip + npm install + cp .env.example .env (~2-3 min)
 printf 'ANTHROPIC_API_KEY=dummy\nHUNTER_API_KEY=dummy\n' > .env   # import-time only; no live calls needed for UI work
 .venv/bin/uvicorn server:app --port 8000 &
 cd frontend && npm run dev &                                      # http://localhost:5173
 ```
+To test the documented from-scratch path, clone the branch into a new dir
+(`git clone -b <branch> <repo> /home/ubuntu/clean-clone`) so no existing `.venv`/`node_modules` is reused.
+`leads.db`/`agent.db` (+ `-wal`/`-shm`) are created on first backend start and are gitignored, so
+`git status` should stay clean; a fresh clone renders the "0 leads tracked" empty state.
+
+Process-management gotchas on this box: `pkill -f vite` / `pkill -f uvicorn` also matches the exec
+tool's own shell and kills it (exit -1). Start dev servers with
+`setsid nohup npm run dev > /tmp/vite.log 2>&1 < /dev/null &` and prefer killing by port/PID.
 Dummy keys are enough for the Settings tab, the Leads Database table, and anything that does not
 run the LangGraph agent. Real agent runs (Chat, graph nodes like `profile_node`/`notify_node`/`phone_node`)
 need genuine keys — see Devin Secrets Needed.
@@ -31,9 +40,12 @@ db.upsert_lead(c, {'first_name':'Ada','last_name':'Lovelace','company':'X','doma
 A lead only shows the select checkbox when `status == 'pending'`.
 
 ## Driving a Chat run without real LLM keys (stub SSE gateway)
-The frontend hardcodes `BASE_URL = 'http://localhost:8000'` (`frontend/src/api.js`) — there is no env
-override — so the way to fake an agent run is to put a stub on `:8000` and move the real server to
-`:8001`. Write a throwaway FastAPI app that proxies everything to `:8001` (httpx) except `POST /chat`,
+`frontend/src/api.js` uses `BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'`,
+so you can either point the UI at another backend via `frontend/.env`
+(`VITE_API_BASE_URL=http://localhost:8001`, requires a Vite restart — it is not hot-reloaded), or keep
+the default and put a stub on `:8000` while the real server moves to `:8001`. CORS `allow_origins` in
+`server.py` is keyed on the UI origin (`http://localhost:5173`) only, so moving the *backend* port needs
+no CORS change; moving the UI port does. Write a throwaway FastAPI app that proxies everything to `:8001` (httpx) except `POST /chat`,
 which streams canned frames; delete it when you're done (do not commit it).
 ```python
 def sse(event, data): return f"event: {event}\ndata: {json.dumps(data)}\n\n"
