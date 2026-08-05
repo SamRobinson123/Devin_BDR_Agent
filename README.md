@@ -62,10 +62,25 @@ If the backend has to run on another port, point the UI at it with
 | `ANTHROPIC_API_KEY` | every LLM/web-search node (Chat runs) | app boots, UI works, agent runs fail |
 | `HUNTER_API_KEY` | email enrichment + Hunter quota card | enrichment returns no verified emails |
 | `PHONE_PROVIDER` + `DATAGMA_API_KEY`/`PROSPEO_API_KEY` | phone enrichment | phone node makes no external calls |
-| `ANTHROPIC_MODEL`, `LEADS_DB_PATH`, `AGENT_DB_PATH` | overrides | defaults are used |
+| `ANTHROPIC_MODEL`, `ANTHROPIC_MAX_TOKENS`, `LEADS_DB_PATH`, `AGENT_DB_PATH` | overrides | defaults are used |
+| `FIND_SEARCH_MAX_USES`, `RESEARCH_SEARCH_MAX_USES`, `PROFILE_SEARCH_MAX_USES`, `PROFILE_LEAD_LIMIT` | search depth (see below) | defaults are used |
 
 Slack webhook, SMTP credentials and the Anthropic admin key (billed spend) are entered in the UI
 Settings / Usage tabs and stored in the `settings` table — not in `.env`.
+
+## Search depth
+
+Each research node gets a web-search budget, tunable in `.env` and read at startup:
+
+| Variable | Default | Controls |
+| --- | --- | --- |
+| `FIND_SEARCH_MAX_USES` | 20 | searches `find_node` may run per chat message |
+| `RESEARCH_SEARCH_MAX_USES` | 8 | searches per company in `research_node` |
+| `PROFILE_SEARCH_MAX_USES` | 10 | searches per person in `profile_node` |
+| `PROFILE_LEAD_LIMIT` | 15 | how many leads get an individual profile pass (one call each) |
+
+Raising these makes enrichment more thorough and costs more: web searches are billed per
+request and show up in the Usage & Spend tab, and runs take proportionally longer.
 
 ## Tests and lint
 

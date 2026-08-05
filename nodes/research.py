@@ -1,13 +1,16 @@
 from langchain_core.messages import HumanMessage, SystemMessage
-from constants import llm as default_llm
+from constants import RESEARCH_SEARCH_MAX_USES, llm as default_llm
 from nodes.parsing import parse_json_object
 from state import AgentState
 
-WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 3}
+WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search",
+                   "max_uses": RESEARCH_SEARCH_MAX_USES}
 
 RESEARCH_SYSTEM = SystemMessage(content=(
-    "You research companies for a BDR team. Use web search on the given domain and "
-    "return ONLY a JSON object with keys industry, employee_count, location, summary, "
+    "You research companies for a BDR team. Use web search on the given domain — "
+    "the site itself, plus funding, hiring and news coverage — and keep searching "
+    "while fields are still unverified. "
+    "Return ONLY a JSON object with keys industry, employee_count, location, summary, "
     "signals. 'summary' is one sentence on what the company does. 'signals' is a short "
     "string of recent buying signals (funding, hiring, launches) or \"\" if none found. "
     "Use null for anything you cannot verify. No prose, no markdown fences."
