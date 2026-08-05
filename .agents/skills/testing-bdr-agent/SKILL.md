@@ -107,3 +107,21 @@ API/DB, not the UI alone — error strings from providers may still echo secrets
 ## Devin Secrets Needed
 - `ANTHROPIC_API_KEY`, `HUNTER_API_KEY` — required only for live agent runs / enrichment.
 - A real Slack incoming webhook and SMTP creds if you need to prove notification delivery.
+
+## Testing phone enrichment under provider rate limits
+Non-obvious gotchas when verifying `phone_node` / Prospeo:
+- **`phone_node` short-circuits** when a lead already has a valid phone: `_find_phone` returns
+  `phone_source=web_search` without calling the provider. So a normal Chat run may not exercise
+  Prospeo for every lead. To force real sequential Prospeo calls (e.g. to reproduce the batch
+  rate-limit path), clear `phone`/`phone_status`/`phone_source`/`phone_confidence` and set
+  `status='pending'` directly in `leads.db`, then use **Enrich Selected** in the Leads Database
+  tab (`POST /leads/enrich` -> `enrich_node` + `phone_node`).
+- Prospeo's free/low tiers rate-limit to ~1 req/s and answer a burst with **429 "Rate limit
+  exceeded"** (occasionally a misleading 400 `INVALID_API_KEY`). `nodes/phone._send()` retries
+  429/5xx with backoff, but the retry is **silent** — only a *final* failure logs
+  `Phone lookup failed …`. Verify the fix by outcome (`phone_source=prospeo`, `phone_status=found`,
+  no ERROR lines), not by looking for a 429 in the log.
+- The human gate is driven by **buttons** (Enrich / Enrich + Draft / Done) in the UI, not by
+  typing "enrich" into the composer.
+- The pytest suite is hermetic: `tests/conftest.py` unsets provider env vars, so a live `.env`
+  will not make unit tests hit real APIs. Live end-to-end checks must go through the running app.
