@@ -134,7 +134,6 @@ export default function Chat() {
     } catch (err) {
       setSteps([])
       setPath([])
-      setPending(null)
       setMessages((m) => [...m, {
         role: 'agent', error: true,
         text: err?.message || 'Something went wrong reaching the agent.',
