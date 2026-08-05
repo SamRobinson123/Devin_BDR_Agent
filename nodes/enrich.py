@@ -40,6 +40,16 @@ def _verify_email(email: str) -> dict:
     return (resp.json().get("data") or {})
 
 
+def _candidates(lead: dict, known_email: str):
+    """Known email first, then pattern guesses — lazily, so a verified known email
+    costs no guessing."""
+    if known_email:
+        yield known_email
+    for guess in _guess_emails(lead):
+        if guess != known_email:
+            yield guess
+
+
 def _find_one(lead: dict) -> dict:
     """Verify a lead's known email through Hunter, then fall back to guessed patterns.
 
@@ -48,14 +58,12 @@ def _find_one(lead: dict) -> dict:
     the pattern guesses still run if it isn't confirmed deliverable/risky.
     """
     known_email = (lead.get("email") or "").strip().lower()
-    guesses = _guess_emails(lead)
-    candidates = [known_email] + [g for g in guesses if g != known_email] if known_email else guesses
-    if not candidates:
-        return {**lead, "email": None, "status": "error", "email_confidence": None}
 
     best_risky = None
+    tried = False
     try:
-        for email in candidates:
+        for email in _candidates(lead, known_email):
+            tried = True
             data = _verify_email(email)
             result = data.get("result")
             if result in _DELIVERABLE:
@@ -66,6 +74,8 @@ def _find_one(lead: dict) -> dict:
         if best_risky:
             email, score = best_risky
             return {**lead, "email": email, "status": "verified", "email_confidence": score}
+        if not tried:
+            return {**lead, "email": None, "status": "error", "email_confidence": None}
         return {**lead, "email": None, "status": "not_found", "email_confidence": None}
     except requests.RequestException as exc:
         status_code = getattr(exc.response, "status_code", None)
