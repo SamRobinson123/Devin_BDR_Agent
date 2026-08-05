@@ -10,7 +10,7 @@ function ask(text = 'find VPs') {
 
 describe('Chat page', () => {
   beforeEach(() => {
-    vi.spyOn(api, 'sendChat')
+    vi.spyOn(api, 'sendChat').mockReset()
   })
 
   it('shows Enrich/Done buttons when the response is paused', async () => {
@@ -69,6 +69,28 @@ describe('Chat page', () => {
     )
     // The composer must stay usable so the user can retry.
     expect(screen.getByPlaceholderText(/message/i)).toBeInTheDocument()
+  })
+
+  it('starts a new thread for each search but reuses it for gate replies', async () => {
+    api.sendChat
+      .mockResolvedValueOnce({ reply: 'Found 1 leads.', leads: [], paused: true, gate_message: 'x' })
+      .mockResolvedValueOnce({ reply: 'Enriched.', leads: [], paused: false, gate_message: null })
+      .mockResolvedValueOnce({ reply: 'Found 1 leads.', leads: [], paused: true, gate_message: 'x' })
+
+    render(<Chat />)
+    ask('find VPs at Acme')
+    await waitFor(() => screen.getByText('Enrich'))
+    const searchThread = api.sendChat.mock.calls[0][1]
+
+    // Gate reply resumes on the same thread.
+    fireEvent.click(screen.getByText('Enrich'))
+    await waitFor(() => expect(screen.queryByText('Enrich')).not.toBeInTheDocument())
+    expect(api.sendChat.mock.calls[1][1]).toBe(searchThread)
+
+    // A brand-new search must NOT reuse the previous run's thread.
+    ask('find CFOs at Globex')
+    await waitFor(() => screen.getByText('Enrich'))
+    expect(api.sendChat.mock.calls[2][1]).not.toBe(searchThread)
   })
 
   it('renders the search results from node events in the chat', async () => {

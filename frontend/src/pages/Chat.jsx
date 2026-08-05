@@ -20,13 +20,14 @@ const SUGGESTIONS = [
   'Enrich the leads already in my database',
 ]
 
-function getThreadId() {
-  let id = localStorage.getItem('thread_id')
-  if (!id) {
-    id = crypto.randomUUID()
-    localStorage.setItem('thread_id', id)
-  }
+function newThreadId() {
+  const id = crypto.randomUUID()
+  localStorage.setItem('thread_id', id)
   return id
+}
+
+function getThreadId() {
+  return localStorage.getItem('thread_id') || newThreadId()
 }
 
 function LeadCard({ lead }) {
@@ -75,7 +76,7 @@ export default function Chat() {
   const [path, setPath] = useState([])
   const [steps, setSteps] = useState([])
   const [railOpen, setRailOpen] = useState(true)
-  const threadId = getThreadId()
+  const threadIdRef = useRef(getThreadId())
   const scrollRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -91,6 +92,11 @@ export default function Chat() {
 
   async function send(text, options = {}) {
     if (!text.trim() || sending) return
+    // Gate replies resume the paused run on its thread; any other message is a
+    // new search, which gets a fresh thread so the prior run's message history
+    // and leads don't bleed into it.
+    const threadId = options.resume ? threadIdRef.current : newThreadId()
+    threadIdRef.current = threadId
     setSending(true)
     setPath([])
     setSteps([])
@@ -211,13 +217,13 @@ export default function Chat() {
               )}
               {pending && !sending && (
                 <div className="chat-gate">
-                  <button className="chat-gate-button primary" onClick={() => send('enrich')} disabled={sending}>
+                  <button className="chat-gate-button primary" onClick={() => send('enrich', { resume: true })} disabled={sending}>
                     Enrich
                   </button>
-                  <button className="chat-gate-button" onClick={() => send('draft', { drafting: true })} disabled={sending}>
+                  <button className="chat-gate-button" onClick={() => send('draft', { drafting: true, resume: true })} disabled={sending}>
                     Enrich + Draft
                   </button>
-                  <button className="chat-gate-button" onClick={() => send('done')} disabled={sending}>
+                  <button className="chat-gate-button" onClick={() => send('done', { resume: true })} disabled={sending}>
                     Done
                   </button>
                 </div>
