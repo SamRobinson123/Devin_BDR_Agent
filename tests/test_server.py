@@ -42,10 +42,10 @@ def test_upload_csv_inserts_valid_rows_and_reports_errors(tmp_path, monkeypatch)
 from unittest.mock import patch, MagicMock
 
 
-def _verifier_resp(result, email):
+def _verifier_resp(status, email):
     m = MagicMock()
     m.status_code = 200
-    m.json.return_value = {"data": {"result": result, "email": email}}
+    m.json.return_value = {"data": {"status": status, "email": email, "accept_all": False}}
     m.raise_for_status.return_value = None
     return m
 
@@ -63,7 +63,7 @@ def test_enrich_endpoint_updates_db_rows(mock_get, tmp_path, monkeypatch):
     client.post("/leads/upload", files=files)
     lead_id = client.get("/leads").json()[0]["id"]
 
-    mock_get.return_value = _verifier_resp("deliverable", "jane.doe@acme.com")
+    mock_get.return_value = _verifier_resp("valid", "jane.doe@acme.com")
     resp = client.post("/leads/enrich", json={"lead_ids": [lead_id]})
 
     assert resp.status_code == 200
@@ -165,7 +165,7 @@ def test_chat_enrich_after_gate_streams_and_updates_db(tmp_path, monkeypatch):
 
     with patch("graph.llm", fake_llm), patch("graph.search_llm", fake_llm), \
             patch("nodes.enrich.requests.get") as mock_get:
-        mock_get.return_value = _verifier_resp("deliverable", "jane.doe@acme.com")
+        mock_get.return_value = _verifier_resp("valid", "jane.doe@acme.com")
         import server
         importlib.reload(server)
 

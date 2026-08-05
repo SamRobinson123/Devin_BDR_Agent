@@ -122,6 +122,24 @@ def enrich_leads(req: EnrichRequest):
     return get_leads_by_ids(db_conn, req.lead_ids)
 
 
+def _public_lead(lead: dict) -> dict:
+    """Drop internal-only fields (e.g. Prospeo's raw person record, stashed on
+    a lead so phone_node can reuse it without a second paid call) before a
+    lead reaches the API/SSE response."""
+    return {k: v for k, v in lead.items() if not k.startswith("_")}
+
+
+def _public_node_update(data: dict | None) -> dict | None:
+    """Same cleanup as _public_lead, applied to a node's streamed state update."""
+    if not data:
+        return data
+    return {
+        key: [_public_lead(item) if isinstance(item, dict) else item for item in value]
+        if isinstance(value, list) else value
+        for key, value in data.items()
+    }
+
+
 def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
@@ -170,7 +188,7 @@ def _build_result(config: dict) -> dict:
 
     return {
         "reply": f"Done. Intent: {values.get('intent')}",
-        "leads": values.get("enriched") or values.get("leads"),
+        "leads": [_public_lead(lead) for lead in (values.get("enriched") or values.get("leads") or [])],
         "paused": False,
         "gate_message": None,
     }
@@ -185,7 +203,7 @@ def _stream_chat(input_or_command, config: dict):
         # find_node output is skipped: dedupe_node compares it against the DB.
         if node_name != "find_node":
             _save_result_to_db(update[node_name])
-        yield _sse("node", {"node": node_name, "data": update[node_name]})
+        yield _sse("node", {"node": node_name, "data": _public_node_update(update[node_name])})
 
     yield _sse("result", _build_result(config))
 

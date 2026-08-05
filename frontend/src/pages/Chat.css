@@ -262,6 +262,11 @@
   background: var(--status-not-found-bg);
 }
 
+.status-pill.unverifiable {
+  color: var(--status-unverifiable-fg);
+  background: var(--status-unverifiable-bg);
+}
+
 .status-pill.error {
   color: var(--status-error-fg);
   background: var(--status-error-bg);

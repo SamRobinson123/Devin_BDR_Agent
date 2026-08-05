@@ -103,47 +103,61 @@ def _datagma_lookup(lead: dict, api_key: str) -> tuple[str | None, str | None]:
     return None, None
 
 
-_PROSPEO_RETRIES = 2
-_PROSPEO_RETRY_DELAY_SECONDS = 3
-
-
-def _prospeo_call(payload_data: dict, api_key: str) -> tuple[str | None, str | None]:
-    """POST one strategy to Prospeo, retrying transient misses before giving up on it."""
-    body = {"enrich_mobile": True, "data": payload_data}
-    for attempt in range(_PROSPEO_RETRIES + 1):
-        resp = _send(requests.post, PROSPEO_ENRICH_URL, json=body,
-                     headers={"X-KEY": api_key, "Content-Type": "application/json"})
-        _record_lookup()
-        result = resp.json()
-        mobile = result.get("person", {}).get("mobile", {})
-        if mobile.get("revealed") and mobile.get("mobile"):
-            return mobile["mobile"], "high"
-        phone = _walk_for_phone(result)
-        if phone:
-            return phone, "medium"
-        if attempt < _PROSPEO_RETRIES:
-            time.sleep(_PROSPEO_RETRY_DELAY_SECONDS)
-    return None, None
-
-
-def _prospeo_lookup(lead: dict, api_key: str) -> tuple[str | None, str | None]:
-    """Try every identifier we have, strongest first, before reporting not_found.
-
-    linkedin_url has the best hit rate, but if it comes up empty (stale profile,
-    no match) fall back to the name+company-domain strategy instead of quitting.
-    """
+def _prospeo_strategies(lead: dict) -> list[dict]:
+    """Identifiers to try, strongest first. linkedin_url has the best hit rate,
+    but if it comes up empty (stale profile, no match) the name+company-domain
+    strategy gets tried instead of quitting."""
     strategies = []
     if lead.get("linkedin_url"):
         strategies.append({"linkedin_url": lead["linkedin_url"]})
     if lead.get("first_name") and lead.get("last_name") and lead.get("domain"):
         strategies.append({"first_name": lead["first_name"], "last_name": lead["last_name"],
                            "company_website": lead["domain"]})
+    return strategies
 
-    for payload_data in strategies:
-        phone, confidence = _prospeo_call(payload_data, api_key)
-        if phone:
-            return phone, confidence
-    return None, None
+
+def _prospeo_call(payload_data: dict, api_key: str) -> dict | None:
+    """POST one strategy to Prospeo's person-enrichment endpoint.
+
+    Requests mobile and email together so a lead's phone and email lookups
+    share a single billed call instead of two. A completed response is
+    deterministic for that exact payload, so unlike the 429/5xx cases
+    `_send` already retries with backoff, there's no point retrying an
+    empty-but-successful result here — it would just burn another credit
+    for the same answer.
+    """
+    body = {"enrich_mobile": True, "enrich_email": True, "data": payload_data}
+    resp = _send(requests.post, PROSPEO_ENRICH_URL, json=body,
+                 headers={"X-KEY": api_key, "Content-Type": "application/json"})
+    _record_lookup()
+    return resp.json().get("person") or None
+
+
+def prospeo_enrich_person(lead: dict, api_key: str) -> dict | None:
+    """Run Prospeo's identifier ladder and return its full person record (mobile + email).
+
+    Public so nodes/enrich.py can reuse it as the authoritative email source
+    without spending a second Prospeo call for the same lead.
+    """
+    for payload_data in _prospeo_strategies(lead):
+        person = _prospeo_call(payload_data, api_key)
+        if person:
+            return person
+    return None
+
+
+def _prospeo_lookup(lead: dict, api_key: str) -> tuple[str | None, str | None]:
+    """Phone half of Prospeo enrichment. Reuses the person record enrich_node
+    already stashed on the lead (as "_prospeo_person") when present, instead
+    of making a second paid call for data we already have."""
+    person = lead.get("_prospeo_person") or prospeo_enrich_person(lead, api_key)
+    if not person:
+        return None, None
+    mobile = person.get("mobile") or {}
+    if mobile.get("revealed") and mobile.get("mobile"):
+        return mobile["mobile"], "high"
+    phone = _walk_for_phone(person)
+    return (phone, "medium") if phone else (None, None)
 
 
 PROVIDERS = {

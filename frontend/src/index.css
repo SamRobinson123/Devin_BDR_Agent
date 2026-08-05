@@ -35,6 +35,8 @@
   --status-error-bg: #fee2e2;
   --status-pending-fg: #d97706;
   --status-pending-bg: #fef3c7;
+  --status-unverifiable-fg: #7c3aed;
+  --status-unverifiable-bg: #ede9fe;
 
   color-scheme: light;
   font: 15px/1.5 var(--sans);
@@ -78,6 +80,8 @@
   --status-error-bg: rgba(248, 113, 113, 0.14);
   --status-pending-fg: #fbbf24;
   --status-pending-bg: rgba(251, 191, 36, 0.14);
+  --status-unverifiable-fg: #c4b5fd;
+  --status-unverifiable-bg: rgba(196, 181, 253, 0.14);
 
   color-scheme: dark;
 }

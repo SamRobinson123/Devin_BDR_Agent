@@ -3,17 +3,17 @@ from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.memory import MemorySaver
 
 
-def _verifier_resp(result):
+def _verifier_resp(status):
     m = MagicMock()
     m.status_code = 200
-    m.json.return_value = {"data": {"result": result, "email": "jane.doe@acme.com"}}
+    m.json.return_value = {"data": {"status": status, "email": "jane.doe@acme.com", "accept_all": False}}
     m.raise_for_status.return_value = None
     return m
 
 
 @patch("nodes.enrich.requests.get")
 def test_enrich_intent_end_to_end(mock_get):
-    mock_get.return_value = _verifier_resp("deliverable")
+    mock_get.return_value = _verifier_resp("valid")
     from graph import build_graph, Intent
 
     fake_llm = MagicMock()

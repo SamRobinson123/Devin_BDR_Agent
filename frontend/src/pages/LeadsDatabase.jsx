@@ -152,7 +152,7 @@ export default function LeadsDatabase({ active = true }) {
                 onClick={() => setExpanded(expanded === lead.id ? null : lead.id)}
               >
                 <td onClick={(e) => e.stopPropagation()}>
-                  {lead.status === 'pending' && (
+                  {['pending', 'unverifiable', 'not_found', 'error'].includes(lead.status) && (
                     <input
                       type="checkbox"
                       checked={selected.has(lead.id)}
