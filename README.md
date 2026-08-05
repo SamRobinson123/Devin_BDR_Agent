@@ -10,7 +10,7 @@ designs and plans in [`docs/superpowers/`](./docs/superpowers).
 ## Prerequisites
 
 - Python 3.10+ (3.12 recommended)
-- Node.js 20+
+- Node.js 22+ (20 works, but `npm install` warns about `@testing-library/jest-dom`)
 - An Anthropic API key; a Hunter.io API key for email enrichment
 
 ## Setup
