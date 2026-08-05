@@ -175,6 +175,14 @@
   padding: 10px 16px;
 }
 
+.chat-bubble.error {
+  color: #b42318;
+  background: #fef3f2;
+  border: 1px solid #fecdca;
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+
 .chat-leads {
   display: flex;
   flex-wrap: wrap;

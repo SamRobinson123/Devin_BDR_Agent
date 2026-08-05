@@ -1,3 +1,5 @@
+Project/architecture, commands, and conventions: see [`AGENTS.md`](./AGENTS.md).
+
 # How to respond
 
 ## Length
