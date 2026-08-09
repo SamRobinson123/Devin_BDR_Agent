@@ -7,16 +7,6 @@ vi.mock('../api')
 
 const SUMMARY = {
   generated_at: '2026-08-02T12:00:00+00:00',
-  hunter: {
-    configured: true,
-    plan_name: 'Growth',
-    reset_date: '2026-08-27',
-    quotas: [
-      { id: 'verifications', label: 'Email verifications', used: 19000, available: 20000, remaining: 1000 },
-      { id: 'searches', label: 'Domain searches', used: 500, available: 10000, remaining: 9500 },
-    ],
-    upgrade_url: 'https://hunter.io/pricing',
-  },
   anthropic: {
     source: 'estimated',
     spend_usd: 4.25,
@@ -28,7 +18,7 @@ const SUMMARY = {
       by_model: [{ model: 'claude-sonnet-4-5', cost_usd: 4.13 }],
       by_kind: [
         { kind: 'llm', requests: 12, cost_usd: 4.13 },
-        { kind: 'verification', requests: 30, cost_usd: 0 },
+        { kind: 'web_search', requests: 30, cost_usd: 0.3 },
       ],
     },
   },
@@ -46,14 +36,6 @@ beforeEach(() => {
 })
 
 describe('Usage', () => {
-  it('shows Hunter quota left with an upgrade link', async () => {
-    render(<Usage />)
-    expect(await screen.findByText('Email verifications')).toBeInTheDocument()
-    expect(screen.getByText('1,000 left')).toBeInTheDocument()
-    expect(screen.getByText('19,000 of 20,000 used')).toBeInTheDocument()
-    expect(screen.getByText(/Upgrade plan/)).toHaveAttribute('href', 'https://hunter.io/pricing')
-  })
-
   it('labels Claude spend as estimated when no admin key is saved', async () => {
     render(<Usage />)
     expect(await screen.findByText('$4.25')).toBeInTheDocument()
@@ -84,7 +66,7 @@ describe('Usage', () => {
 
   it('breaks down calls by activity', async () => {
     render(<Usage />)
-    expect(await screen.findByText('Hunter email verifications')).toBeInTheDocument()
+    expect(await screen.findByText('Web searches')).toBeInTheDocument()
     expect(screen.getByText('30')).toBeInTheDocument()
   })
 

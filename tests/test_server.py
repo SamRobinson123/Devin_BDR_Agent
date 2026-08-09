@@ -42,16 +42,20 @@ def test_upload_csv_inserts_valid_rows_and_reports_errors(tmp_path, monkeypatch)
 from unittest.mock import patch, MagicMock
 
 
-def _verifier_resp(status, email):
-    m = MagicMock()
-    m.status_code = 200
-    m.json.return_value = {"data": {"status": status, "email": email, "accept_all": False}}
-    m.raise_for_status.return_value = None
-    return m
+def _contact_llm(email="jane.doe@acme.com", phone=None):
+    import json as _json
+    llm = MagicMock()
+    response = MagicMock()
+    response.content = _json.dumps({
+        "email": email, "email_confidence": 92, "email_source": "https://acme.com/team",
+        "phone": phone, "phone_confidence": "high" if phone else None,
+        "phone_source": "https://acme.com/team" if phone else None,
+    })
+    llm.bind_tools.return_value.invoke.return_value = response
+    return llm
 
 
-@patch("nodes.enrich.requests.get")
-def test_enrich_endpoint_updates_db_rows(mock_get, tmp_path, monkeypatch):
+def test_enrich_endpoint_updates_db_rows(tmp_path, monkeypatch):
     monkeypatch.setenv("LEADS_DB_PATH", str(tmp_path / "test_leads3.db"))
     import importlib
     import server
@@ -63,8 +67,8 @@ def test_enrich_endpoint_updates_db_rows(mock_get, tmp_path, monkeypatch):
     client.post("/leads/upload", files=files)
     lead_id = client.get("/leads").json()[0]["id"]
 
-    mock_get.return_value = _verifier_resp("valid", "jane.doe@acme.com")
-    resp = client.post("/leads/enrich", json={"lead_ids": [lead_id]})
+    with patch("nodes.enrich.default_search_llm", _contact_llm()):
+        resp = client.post("/leads/enrich", json={"lead_ids": [lead_id]})
 
     assert resp.status_code == 200
     updated = client.get("/leads").json()[0]
@@ -163,9 +167,15 @@ def test_chat_enrich_after_gate_streams_and_updates_db(tmp_path, monkeypatch):
         '[{"first_name": "Jane", "last_name": "Doe", "company": "Acme", "domain": "acme.com"}]'
     ))
 
+    def fake_enrich(state, llm=None):
+        return {"enriched": [{**lead, "email": "jane.doe@acme.com", "status": "verified",
+                              "email_confidence": 92, "phone": None,
+                              "phone_status": "not_found", "phone_source": None,
+                              "phone_confidence": None}
+                             for lead in state.get("leads", [])]}
+
     with patch("graph.llm", fake_llm), patch("graph.search_llm", fake_llm), \
-            patch("nodes.enrich.requests.get") as mock_get:
-        mock_get.return_value = _verifier_resp("valid", "jane.doe@acme.com")
+            patch("graph.enrich_node", fake_enrich):
         import server
         importlib.reload(server)
 
@@ -182,7 +192,7 @@ def test_chat_enrich_after_gate_streams_and_updates_db(tmp_path, monkeypatch):
 
     events = _parse_sse(body)
     node_events = [e["data"]["node"] for e in events if e["event"] == "node"]
-    assert node_events == ["human_gate", "enrich_node", "phone_node", "notify_node"]
+    assert node_events == ["human_gate", "enrich_node", "notify_node"]
 
     result = next(e["data"] for e in events if e["event"] == "result")
     assert result["paused"] is False
@@ -243,18 +253,12 @@ def test_usage_settings_roundtrip_never_echoes_the_admin_key(tmp_path, monkeypat
     assert client.get("/settings/usage").json()["anthropic_admin_key_set"] is True
 
 
-def test_usage_endpoint_reports_hunter_quota_and_ledger_spend(tmp_path, monkeypatch):
+def test_usage_endpoint_reports_ledger_spend(tmp_path, monkeypatch):
     monkeypatch.setenv("LEADS_DB_PATH", str(tmp_path / "test_leads9.db"))
-    monkeypatch.setenv("HUNTER_API_KEY", "hunter-key")
     import importlib
     import server
     importlib.reload(server)
 
-    monkeypatch.setattr(server.usage, "hunter_account", lambda key: {
-        "configured": True, "plan_name": "Growth",
-        "quotas": [{"id": "verifications", "label": "Email verifications",
-                    "used": 10, "available": 100, "remaining": 90}],
-    })
     server.db_conn.execute(
         "INSERT INTO usage_events (ts, provider, kind, model, requests, input_tokens, "
         "output_tokens, cost_usd) VALUES (replace(datetime('now'), ' ', 'T'), 'anthropic', 'llm', "
@@ -263,6 +267,5 @@ def test_usage_endpoint_reports_hunter_quota_and_ledger_spend(tmp_path, monkeypa
     server.db_conn.commit()
 
     body = TestClient(server.app).get("/usage").json()
-    assert body["hunter"]["quotas"][0]["remaining"] == 90
     assert body["anthropic"]["source"] == "estimated"
     assert body["anthropic"]["spend_usd"] == 0.011

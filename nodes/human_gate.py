@@ -22,6 +22,6 @@ def route_after_gate(state: AgentState) -> str:
     return "enrich_node" if state.get("gate_decision") in ("enrich", "draft") else END
 
 
-def route_after_phone(state: AgentState) -> str:
+def route_after_enrich(state: AgentState) -> str:
     """Only write outreach drafts when the human explicitly asked for them."""
     return "draft_node" if state.get("gate_decision") == "draft" else END

@@ -3,10 +3,7 @@ import pytest
 import usage
 
 
-_PROVIDER_ENV_VARS = (
-    "ANTHROPIC_API_KEY", "HUNTER_API_KEY",
-    "PHONE_PROVIDER", "DATAGMA_API_KEY", "PROSPEO_API_KEY",
-)
+_PROVIDER_ENV_VARS = ("ANTHROPIC_API_KEY",)
 
 
 @pytest.fixture(autouse=True)

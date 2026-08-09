@@ -11,10 +11,9 @@ const NODES = [
   { name: 'profile_node', label: 'Person profile', icon: '👤', x: 86, y: 320 },
   { name: 'score_node', label: 'ICP score', icon: '🎯', x: 86, y: 392 },
   { name: 'human_gate', label: 'Your call', icon: '✋', x: 86, y: 464 },
-  { name: 'enrich_node', label: 'Find emails', icon: '✉️', x: 170, y: 540 },
-  { name: 'phone_node', label: 'Find phones', icon: '📞', x: 170, y: 612 },
-  { name: 'draft_node', label: 'Write drafts', icon: '✍️', x: 170, y: 684 },
-  { name: 'notify_node', label: 'Notify you', icon: '🔔', x: 170, y: 756 },
+  { name: 'enrich_node', label: 'Find contact info', icon: '✉️', x: 170, y: 540 },
+  { name: 'draft_node', label: 'Write drafts', icon: '✍️', x: 170, y: 612 },
+  { name: 'notify_node', label: 'Notify you', icon: '🔔', x: 170, y: 684 },
 ]
 
 const EDGES = [
@@ -26,10 +25,9 @@ const EDGES = [
   { from: 'profile_node', to: 'score_node' },
   { from: 'score_node', to: 'human_gate' },
   { from: 'human_gate', to: 'enrich_node' },
-  { from: 'enrich_node', to: 'phone_node' },
-  { from: 'phone_node', to: 'draft_node' },
+  { from: 'enrich_node', to: 'draft_node' },
   { from: 'draft_node', to: 'notify_node' },
-  { from: 'phone_node', to: 'notify_node', lane: 288 },
+  { from: 'enrich_node', to: 'notify_node', lane: 288 },
 ]
 
 const BY_NAME = Object.fromEntries(NODES.map((n) => [n.name, n]))

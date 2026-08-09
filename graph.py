@@ -15,9 +15,8 @@ from nodes.dedupe import dedupe_node
 from nodes.research import research_node
 from nodes.profile import profile_node
 from nodes.score import score_node
-from nodes.human_gate import human_gate, route_after_gate, route_after_phone
+from nodes.human_gate import human_gate, route_after_gate, route_after_enrich
 from nodes.enrich import enrich_node
-from nodes.phone import phone_node
 from nodes.draft import draft_node
 from nodes.notify import notify_node
 
@@ -34,8 +33,7 @@ def build_graph(checkpointer=None):
     g.add_node("profile_node", lambda state: profile_node(state, llm=search_llm))
     g.add_node("score_node", lambda state: score_node(state, llm=llm))
     g.add_node("human_gate", human_gate)
-    g.add_node("enrich_node", enrich_node)
-    g.add_node("phone_node", phone_node)
+    g.add_node("enrich_node", lambda state: enrich_node(state, llm=search_llm))
     g.add_node("draft_node", lambda state: draft_node(state, llm=llm))
     g.add_node("notify_node", notify_node)
 
@@ -54,8 +52,7 @@ def build_graph(checkpointer=None):
         "enrich_node": "enrich_node",
         END: END,
     })
-    g.add_edge("enrich_node", "phone_node")
-    g.add_conditional_edges("phone_node", route_after_phone, {
+    g.add_conditional_edges("enrich_node", route_after_enrich, {
         "draft_node": "draft_node",
         END: "notify_node",
     })

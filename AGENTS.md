@@ -31,8 +31,8 @@ Leads Database tab.
 intent_node ─┬─(find_leads)→ find → dedupe → research → profile → score → human_gate
              ├─(enrich_leads)──────────────────────────────────────────→ enrich_node
              └─(clarify)→ END
-human_gate ─(enrich/draft)→ enrich_node → phone_node ─┬→ draft_node → notify_node → END
-           └─(done)→ END                              └→ notify_node → END
+human_gate ─(enrich/draft)→ enrich_node ─┬→ draft_node → notify_node → END
+           └─(done)→ END                 └→ notify_node → END
 ```
 
 `human_gate` interrupts the run; the UI resumes it with `Command(resume=<decision>)`.
@@ -57,7 +57,7 @@ Always run the relevant test/lint commands before opening a PR.
   Preserve input lead order.
 - Per-lead network/LLM work in `research`/`profile`/`enrich` runs through
   `nodes/concurrency.py#parallel_map` (order-preserving, bounded by `ENRICH_MAX_WORKERS`,
-  default 8). `phone_node` stays sequential on purpose (provider rate limits).
+  default 8).
 - Never commit `.env` (gitignored). Tests must not hit real APIs — `tests/conftest.py` unsets
   provider keys so a local `.env` can't leak into the suite. Don't weaken it.
 
@@ -67,8 +67,6 @@ Always run the relevant test/lint commands before opening a PR.
   across independent searches bleeds prior context into `intent_node`/`find_node`. The UI
   starts a fresh `thread_id` per new search and reuses it only for human-gate replies. Keep
   that invariant.
-- **Phone provider rate limits.** Prospeo's free tier is ~1 req/s; `phone_node` retries
-  429/5xx with backoff. Keep enrichment batches small when testing on a free key.
 - **Chat errors must surface.** `api.js` throws on unreachable/non-200/empty-stream; `Chat.jsx`
   catches and renders an error bubble while keeping the composer and any pending gate usable.
   Don't swallow these.

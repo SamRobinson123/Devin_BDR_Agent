@@ -1,13 +1,9 @@
 """Usage and spend tracking for the paid APIs the agent runs on.
 
-Two very different data sources:
-
-- Hunter publishes live plan quota on GET /v2/account, and that call is free, so
-  searches/verifications left are always authoritative.
-- Anthropic only publishes spend through the Admin API, which needs an
-  organisation admin key (sk-ant-admin…) that is *not* the key the agent runs
-  on. Without one we price a local ledger of token counts instead, so the tab is
-  still useful on a plain API key.
+Anthropic only publishes spend through the Admin API, which needs an
+organisation admin key (sk-ant-admin…) that is *not* the key the agent runs
+on. Without one we price a local ledger of token counts instead, so the tab is
+still useful on a plain API key.
 """
 
 import os
@@ -27,8 +23,6 @@ DEFAULT_SETTINGS = {
 
 SECRET_FIELDS = ("anthropic_admin_key",)
 
-HUNTER_ACCOUNT_URL = "https://api.hunter.io/v2/account"
-HUNTER_UPGRADE_URL = "https://hunter.io/pricing"
 ANTHROPIC_COST_URL = "https://api.anthropic.com/v1/organizations/cost_report"
 ANTHROPIC_ADMIN_KEYS_URL = "https://console.anthropic.com/settings/admin-keys"
 ANTHROPIC_USAGE_URL = "https://console.anthropic.com/settings/usage"
@@ -44,13 +38,6 @@ FALLBACK_PRICING = MODEL_PRICING["claude-sonnet-4"]
 
 # The server-side web search tool bills per request: $10 / 1,000 searches.
 WEB_SEARCH_USD = 0.01
-
-QUOTA_LABELS = {
-    "credits": "Credits",
-    "searches": "Domain searches",
-    "verifications": "Email verifications",
-}
-
 
 def merge_defaults(stored: dict | None) -> dict:
     return settings_store.merge_defaults(DEFAULT_SETTINGS, stored)
@@ -127,44 +114,6 @@ def record_api_call(provider: str, kind: str, cost_usd: float = 0.0) -> None:
     _record({"provider": provider, "kind": kind, "cost_usd": cost_usd})
 
 
-def _quota(requests_block: dict, name: str) -> dict | None:
-    block = requests_block.get(name)
-    if not isinstance(block, dict):
-        return None
-    used, available = block.get("used"), block.get("available")
-    if used is None or available is None:
-        return None
-    return {"id": name, "label": QUOTA_LABELS.get(name, name.title()),
-            "used": used, "available": available,
-            "remaining": max(available - used, 0)}
-
-
-def hunter_account(api_key: str | None) -> dict:
-    if not api_key:
-        return {"configured": False, "upgrade_url": HUNTER_UPGRADE_URL}
-    try:
-        resp = requests.get(HUNTER_ACCOUNT_URL, headers={"X-API-KEY": api_key}, timeout=15)
-        if resp.status_code == 401:
-            return {"configured": True, "error": "Hunter rejected the API key.",
-                    "upgrade_url": HUNTER_UPGRADE_URL}
-        resp.raise_for_status()
-        data = resp.json().get("data") or {}
-    except requests.RequestException as exc:
-        return {"configured": True, "error": str(exc), "upgrade_url": HUNTER_UPGRADE_URL}
-
-    quotas = [q for q in (_quota(data.get("requests") or {}, name)
-                          for name in ("verifications", "searches", "credits")) if q]
-    return {
-        "configured": True,
-        "plan_name": data.get("plan_name"),
-        "plan_level": data.get("plan_level"),
-        "reset_date": str(data.get("reset_date")) if data.get("reset_date") else None,
-        "email": data.get("email"),
-        "quotas": quotas,
-        "upgrade_url": HUNTER_UPGRADE_URL,
-    }
-
-
 def _cost_report_pages(admin_key: str, params: dict):
     headers = {"x-api-key": admin_key, "anthropic-version": "2023-06-01"}
     for _ in range(12):
@@ -221,7 +170,7 @@ def _month_start(now: datetime) -> datetime:
     return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
 
-def summary(conn, settings: dict, hunter_key: str | None, now: datetime | None = None) -> dict:
+def summary(conn, settings: dict, now: datetime | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
     month_start = _month_start(now).isoformat()
     window_start = (now - timedelta(days=30)).isoformat()
@@ -242,7 +191,6 @@ def summary(conn, settings: dict, hunter_key: str | None, now: datetime | None =
     return {
         "generated_at": now.isoformat(),
         "month_start": month_start,
-        "hunter": hunter_account(hunter_key),
         "anthropic": {
             "billed": billed,
             "estimated": estimated,

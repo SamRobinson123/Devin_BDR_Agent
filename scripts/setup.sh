@@ -13,7 +13,7 @@ PYTHON=${PYTHON:-python3}
 
 if [ ! -f .env ]; then
   cp .env.example .env
-  echo "Created .env - add your ANTHROPIC_API_KEY and HUNTER_API_KEY."
+  echo "Created .env - add your ANTHROPIC_API_KEY."
 fi
 
 cat <<'EOF'

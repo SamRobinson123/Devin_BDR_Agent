@@ -5,11 +5,15 @@ from constants import llm as default_llm
 from state import AgentState
 
 SCORE_SYSTEM = SystemMessage(content=(
-    "You qualify prospects for a BDR team. Score each prospect 0-100 on how well it "
-    "matches the ideal customer profile in the user's request, using the company and "
-    "person research provided. Weigh whether this person is plausibly the buyer — "
-    "seniority and title matter as much as company fit. Give a one-sentence reason "
-    "citing concrete evidence. Score 0 when the prospect clearly does not match."
+    "You qualify prospects for Flex's BDR team. Flex sells to property management "
+    "companies that use AppFolio, and the buyer is a property manager. Score each "
+    "prospect 0-100 on fit, using the company and person research provided and the "
+    "user's request. Hard requirements: the person must hold a property-management "
+    "role (Property Manager, Portfolio Manager, Director/VP of Property Management) — "
+    "cap non-property-manager roles at 40. Weight AppFolio usage heavily: "
+    "uses_appfolio true is a strong positive; false (on a competing platform) caps "
+    "the score at 30; null is neutral. Give a one-sentence reason citing concrete "
+    "evidence. Score 0 when the prospect clearly does not match."
 ))
 
 
@@ -32,7 +36,7 @@ def _icp_text(state: AgentState) -> str:
 
 def _prospect_payload(leads: list) -> str:
     keys = ("first_name", "last_name", "title", "company", "domain", "industry",
-            "employee_count", "location", "research_summary", "seniority", "tenure",
+            "employee_count", "location", "uses_appfolio", "research_summary", "seniority", "tenure",
             "person_summary", "talking_points")
     return json.dumps([{k: lead.get(k) for k in keys} for lead in leads])
 

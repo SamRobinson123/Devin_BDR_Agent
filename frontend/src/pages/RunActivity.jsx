@@ -9,8 +9,7 @@ const LABELS = {
   profile_node: 'Profiled people',
   score_node: 'Scored ICP fit',
   human_gate: 'Waiting on your call',
-  enrich_node: 'Looked up emails',
-  phone_node: 'Looked up phone numbers',
+  enrich_node: 'Looked up contact info',
   draft_node: 'Wrote outreach drafts',
   notify_node: 'Sent notifications',
 }
@@ -24,7 +23,6 @@ const ICONS = {
   score_node: '🎯',
   human_gate: '✋',
   enrich_node: '✉️',
-  phone_node: '📞',
   draft_node: '✍️',
   notify_node: '🔔',
 }
@@ -93,18 +91,11 @@ function summarize(node, data) {
       return { detail: 'Choose enrich, draft, or done', rows: [] }
     case 'enrich_node':
       return {
-        detail: count(leads.filter((l) => l.email), 'email'),
+        detail: `${count(leads.filter((l) => l.email), 'email')}, ${count(leads.filter((l) => l.phone), 'phone number')}`,
         rows: leads.map((l) => ({
-          key: `e-${name(l)}`, title: name(l), text: l.email || 'no email found',
+          key: `e-${name(l)}`, title: name(l),
+          text: [l.email || 'no email found', l.phone || 'no phone found'].join(' · '),
           status: l.status,
-        })),
-      }
-    case 'phone_node':
-      return {
-        detail: count(leads.filter((l) => l.phone), 'phone number'),
-        rows: leads.map((l) => ({
-          key: `ph-${name(l)}`, title: name(l), text: l.phone || 'no phone found',
-          status: l.phone_status,
         })),
       }
     case 'draft_node':

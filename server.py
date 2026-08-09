@@ -15,7 +15,6 @@ from db import (init_db, list_leads, insert_csv_rows, get_leads_by_ids,
 import notifications
 import usage
 from nodes.enrich import enrich_node
-from nodes.phone import phone_node
 from graph import app as compiled_graph
 
 LEADS_DB_PATH = os.getenv("LEADS_DB_PATH", "leads.db")
@@ -91,7 +90,7 @@ def write_usage_settings(update: dict):
 
 @app.get("/usage")
 def read_usage():
-    return usage.summary(db_conn, _usage_settings(), os.getenv("HUNTER_API_KEY"))
+    return usage.summary(db_conn, _usage_settings())
 
 
 @app.get("/leads")
@@ -110,9 +109,8 @@ async def upload_leads(file: UploadFile = File(...)):
 @app.post("/leads/enrich")
 def enrich_leads(req: EnrichRequest):
     rows = get_leads_by_ids(db_conn, req.lead_ids)
-    email_result = enrich_node({"leads": rows})
-    phone_result = phone_node({"enriched": email_result["enriched"]})
-    for lead in phone_result["enriched"]:
+    result = enrich_node({"leads": rows})
+    for lead in result["enriched"]:
         update_lead_enrichment(
             db_conn, lead["id"], lead.get("email"), lead.get("status"),
             lead.get("phone"), lead.get("phone_status"),
@@ -123,8 +121,7 @@ def enrich_leads(req: EnrichRequest):
 
 
 def _public_lead(lead: dict) -> dict:
-    """Drop internal-only fields (e.g. Prospeo's raw person record, stashed on
-    a lead so phone_node can reuse it without a second paid call) before a
+    """Drop internal-only fields (anything underscore-prefixed) before a
     lead reaches the API/SSE response."""
     return {k: v for k, v in lead.items() if not k.startswith("_")}
 

@@ -9,10 +9,10 @@ function node(name) {
 describe('GraphPanel', () => {
   it('renders every graph node', () => {
     const { container } = render(<GraphPanel path={[]} />)
-    expect(container.querySelectorAll('.graph-node')).toHaveLength(11)
+    expect(container.querySelectorAll('.graph-node')).toHaveLength(10)
     expect(screen.getByText('Web search')).toBeInTheDocument()
     expect(screen.getByText('Your call')).toBeInTheDocument()
-    expect(node('phone_node')).toHaveClass('pending')
+    expect(node('enrich_node')).toHaveClass('pending')
   })
 
   it('marks nodes completed and current based on path', () => {

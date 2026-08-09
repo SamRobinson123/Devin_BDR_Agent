@@ -11,7 +11,7 @@ designs and plans in [`docs/superpowers/`](./docs/superpowers).
 
 - Python 3.10+ (3.12 recommended)
 - Node.js 22+ (20 works, but `npm install` warns about `@testing-library/jest-dom`)
-- An Anthropic API key; a Hunter.io API key for email enrichment
+- An Anthropic API key (contact enrichment runs on Claude's web search + web fetch tools)
 
 ## Setup
 
@@ -26,7 +26,6 @@ Then put your keys in `.env` (see `.env.example` for every supported variable):
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...
-HUNTER_API_KEY=...
 ```
 
 Manual equivalent:
@@ -59,10 +58,8 @@ If the backend has to run on another port, point the UI at it with
 
 | Variable | Needed for | Without it |
 | --- | --- | --- |
-| `ANTHROPIC_API_KEY` | every LLM/web-search node (Chat runs) | app boots, UI works, agent runs fail |
-| `HUNTER_API_KEY` | email enrichment + Hunter quota card | enrichment returns no verified emails |
-| `PHONE_PROVIDER` + `DATAGMA_API_KEY`/`PROSPEO_API_KEY` | phone enrichment | phone node makes no external calls |
-| `ANTHROPIC_MODEL`, `LEADS_DB_PATH`, `AGENT_DB_PATH` | overrides | defaults are used |
+| `ANTHROPIC_API_KEY` | every node, incl. contact enrichment (web search + web fetch) | app boots, UI works, agent runs fail |
+| `ANTHROPIC_MODEL`, `ANTHROPIC_SEARCH_MODEL`, `LEADS_DB_PATH`, `AGENT_DB_PATH` | overrides | defaults are used |
 
 Slack webhook, SMTP credentials and the Anthropic admin key (billed spend) are entered in the UI
 Settings / Usage tabs and stored in the `settings` table — not in `.env`.

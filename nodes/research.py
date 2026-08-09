@@ -7,14 +7,20 @@ from state import AgentState
 WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 2}
 
 RESEARCH_SYSTEM = SystemMessage(content=(
-    "You research companies for a BDR team. Use web search on the given domain and "
+    "You research companies for a BDR team at Flex, which sells to property "
+    "management companies that use AppFolio. Use web search on the given domain and "
     "return ONLY a JSON object with keys industry, employee_count, location, summary, "
-    "signals. 'summary' is one sentence on what the company does. 'signals' is a short "
-    "string of recent buying signals (funding, hiring, launches) or \"\" if none found. "
-    "Use null for anything you cannot verify. No prose, no markdown fences."
+    "signals, uses_appfolio. 'summary' is one sentence on what the company does. "
+    "'signals' is a short string of recent buying signals (funding, hiring, launches) "
+    "or \"\" if none found. 'uses_appfolio' is true if you find evidence the company "
+    "uses AppFolio — listings hosted on *.appfolio.com, an AppFolio tenant/owner "
+    "portal link on their site, or job posts mentioning AppFolio — false if you find "
+    "evidence of a competing platform (Yardi, Buildium, Propertyware, Rent Manager), "
+    "and null if unknown. Use null for anything you cannot verify. No prose, no "
+    "markdown fences."
 ))
 
-RESEARCH_FIELDS = ("industry", "employee_count", "location")
+RESEARCH_FIELDS = ("industry", "employee_count", "location", "uses_appfolio")
 
 
 def _research_domain(domain: str, company: str, llm) -> dict:

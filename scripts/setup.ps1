@@ -14,7 +14,7 @@ Pop-Location
 
 if (-not (Test-Path .env)) {
     Copy-Item .env.example .env
-    Write-Host 'Created .env - add your ANTHROPIC_API_KEY and HUNTER_API_KEY.'
+    Write-Host 'Created .env - add your ANTHROPIC_API_KEY.'
 }
 
 Write-Host ''

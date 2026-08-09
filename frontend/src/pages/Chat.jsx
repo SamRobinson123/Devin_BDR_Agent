@@ -11,12 +11,11 @@ const NEXT_NODE = {
   profile_node: 'score_node',
   score_node: 'human_gate',
   human_gate: 'enrich_node',
-  enrich_node: 'phone_node',
 }
 
 const SUGGESTIONS = [
-  'Find VPs of Sales at Series A fintech startups',
-  'Find heads of RevOps at US logistics companies',
+  'Find property managers at AppFolio-run firms in Denver',
+  'Find portfolio managers at single-family PM companies in Texas',
   'Enrich the leads already in my database',
 ]
 
@@ -118,7 +117,7 @@ export default function Chat() {
           if (evt.node === 'intent_node') {
             const branch = evt.data.intent === 'enrich_leads' ? 'enrich_node' : 'find_node'
             next.push({ node: branch, status: 'current' })
-          } else if (evt.node === 'phone_node') {
+          } else if (evt.node === 'enrich_node') {
             if (options.drafting) next.push({ node: 'draft_node', status: 'current' })
             else next.push({ node: 'notify_node', status: 'current' })
           } else if (evt.node === 'draft_node') {

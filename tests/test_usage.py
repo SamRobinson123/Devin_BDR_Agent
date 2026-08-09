@@ -20,21 +20,6 @@ class FakeResponse:
             raise requests.HTTPError(f"{self.status_code}")
 
 
-HUNTER_PAYLOAD = {
-    "data": {
-        "plan_name": "Growth",
-        "plan_level": 2,
-        "reset_date": "2026-06-27",
-        "email": "me@co.com",
-        "requests": {
-            "credits": {"used": 550, "available": 10000},
-            "searches": {"used": 500, "available": 10000},
-            "verifications": {"used": 19000, "available": 20000},
-        },
-    }
-}
-
-
 @pytest.fixture
 def conn(tmp_path):
     return init_db(str(tmp_path / "usage.db"))
@@ -50,30 +35,6 @@ def test_token_cost_prices_each_token_class_by_model(tmp_path):
 def test_unknown_model_falls_back_to_sonnet_pricing():
     assert usage.pricing_for("some-future-model") == usage.MODEL_PRICING["claude-sonnet-4"]
     assert usage.pricing_for("claude-opus-4-1")["output"] == 75.0
-
-
-def test_hunter_account_normalises_quotas(monkeypatch):
-    monkeypatch.setattr(usage.requests, "get", lambda *a, **k: FakeResponse(HUNTER_PAYLOAD))
-    account = usage.hunter_account("key")
-
-    assert account["plan_name"] == "Growth"
-    assert account["reset_date"] == "2026-06-27"
-    verifications = next(q for q in account["quotas"] if q["id"] == "verifications")
-    assert verifications["remaining"] == 1000
-    assert verifications["label"] == "Email verifications"
-    assert account["upgrade_url"] == usage.HUNTER_UPGRADE_URL
-
-
-def test_hunter_account_without_key_is_not_configured():
-    assert usage.hunter_account("")["configured"] is False
-
-
-def test_hunter_account_reports_a_rejected_key(monkeypatch):
-    monkeypatch.setattr(usage.requests, "get",
-                        lambda *a, **k: FakeResponse(status_code=401))
-    account = usage.hunter_account("bad")
-    assert account["configured"] is True
-    assert "rejected" in account["error"]
 
 
 def test_anthropic_cost_converts_cents_and_groups_by_model(monkeypatch):
@@ -115,13 +76,13 @@ def test_ledger_aggregates_by_day_kind_and_model(conn):
     record_usage_event(conn, {"ts": "2026-08-02T10:00:00+00:00", "provider": "anthropic",
                               "kind": "llm", "model": "claude-sonnet-4-5",
                               "input_tokens": 2000, "output_tokens": 100, "cost_usd": 0.02})
-    record_usage_event(conn, {"ts": "2026-08-02T11:00:00+00:00", "provider": "hunter",
-                              "kind": "verification", "cost_usd": 0.0})
+    record_usage_event(conn, {"ts": "2026-08-02T11:00:00+00:00", "provider": "anthropic",
+                              "kind": "web_search", "cost_usd": 0.01})
 
     totals = usage_totals(conn, "2026-08-01T00:00:00+00:00")
     assert totals["requests"] == 3
     assert totals["input_tokens"] == 3000
-    assert totals["cost_usd"] == pytest.approx(0.03)
+    assert totals["cost_usd"] == pytest.approx(0.04)
 
     days = usage_grouped(conn, "day", "2026-08-01T00:00:00+00:00")
     assert [d["day"] for d in days] == ["2026-08-01", "2026-08-02"]
@@ -129,29 +90,26 @@ def test_ledger_aggregates_by_day_kind_and_model(conn):
 
     kinds = {k["kind"]: k["requests"] for k in
              usage_grouped(conn, "kind", "2026-08-01T00:00:00+00:00")}
-    assert kinds == {"llm": 2, "verification": 1}
+    assert kinds == {"llm": 2, "web_search": 1}
 
     totals_after = usage_totals(conn, "2026-08-02T00:00:00+00:00")
     assert totals_after["requests"] == 2
 
 
 def test_claude_estimate_ignores_other_providers(conn, monkeypatch):
-    monkeypatch.setattr(usage, "hunter_account", lambda key: {"configured": False})
     now = datetime.now(timezone.utc).isoformat()
     record_usage_event(conn, {"ts": now, "provider": "anthropic", "kind": "llm",
                               "model": "claude-sonnet-4-5", "cost_usd": 0.2})
-    record_usage_event(conn, {"ts": now, "provider": "hunter", "kind": "verification"})
-    record_usage_event(conn, {"ts": now, "provider": "datagma", "kind": "phone_lookup"})
+    record_usage_event(conn, {"ts": now, "provider": "other", "kind": "web_search"})
 
-    estimated = usage.summary(conn, {}, None)["anthropic"]["estimated"]
+    estimated = usage.summary(conn, {})["anthropic"]["estimated"]
 
     assert estimated["month"]["requests"] == 1
     assert [m["model"] for m in estimated["by_model"]] == ["claude-sonnet-4-5"]
-    assert {k["kind"] for k in estimated["by_kind"]} == {"llm", "verification", "phone_lookup"}
+    assert {k["kind"] for k in estimated["by_kind"]} == {"llm", "web_search"}
 
 
 def test_summary_prefers_billed_spend_when_an_admin_key_works(conn, monkeypatch):
-    monkeypatch.setattr(usage, "hunter_account", lambda key: {"configured": False})
     monkeypatch.setattr(usage, "anthropic_cost",
                         lambda key, start: {"configured": True, "total_usd": 12.5,
                                             "daily": [], "by_model": []})
@@ -160,7 +118,7 @@ def test_summary_prefers_billed_spend_when_an_admin_key_works(conn, monkeypatch)
                               "model": "claude-sonnet-4-5", "cost_usd": 0.5})
 
     result = usage.summary(conn, {"anthropic_admin_key": "sk-ant-admin-x",
-                                  "monthly_budget_usd": 10}, None)
+                                  "monthly_budget_usd": 10})
 
     assert result["anthropic"]["source"] == "billed"
     assert result["anthropic"]["spend_usd"] == 12.5
@@ -168,12 +126,11 @@ def test_summary_prefers_billed_spend_when_an_admin_key_works(conn, monkeypatch)
 
 
 def test_summary_falls_back_to_the_local_estimate(conn, monkeypatch):
-    monkeypatch.setattr(usage, "hunter_account", lambda key: {"configured": False})
     record_usage_event(conn, {"ts": datetime.now(timezone.utc).isoformat(),
                               "provider": "anthropic", "kind": "llm",
                               "model": "claude-sonnet-4-5", "cost_usd": 0.25})
 
-    result = usage.summary(conn, {}, None)
+    result = usage.summary(conn, {})
 
     assert result["anthropic"]["source"] == "estimated"
     assert result["anthropic"]["spend_usd"] == pytest.approx(0.25)
